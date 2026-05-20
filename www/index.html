@@ -11,6 +11,31 @@
   <canvas id="space"></canvas>
   <div class="wave-glow" id="waveGlow"></div>
 
+  <!-- Неоновый счётчик наград -->
+  <div class="neon-counter" id="neonCounter">
+    <div class="neon-counter-inner" id="neonCounterInner">
+      <div class="neon-counter-icon">🐟</div>
+      <div class="neon-counter-text" id="neonCounterText">ТЫ ПОЛУЧИШЬ</div>
+      <div class="neon-counter-amount" id="neonCounterAmount">+0</div>
+      <div class="neon-counter-timer" id="neonCounterTimer">через 0 сек</div>
+    </div>
+  </div>
+
+  <!-- Оффлайн popup -->
+  <div class="offline-popup" id="offlinePopup">
+    <div class="offline-popup-inner">
+      <div class="offline-icon"><img src="OfflineCatIcon.png" alt="offline cat" /></div>
+      <div class="offline-title">WELCOME BACK!</div>
+      <div class="offline-time" id="offlineTime">You were away for 0m</div>
+      <div class="offline-reward-row">
+        <img src="FishIcon1.png" alt="fish" class="offline-fish-icon" />
+        <span class="offline-amount" id="offlineAmount">+0</span>
+      </div>
+      <div class="offline-hint">Your cats were fishing while you slept!</div>
+      <button class="offline-collect-btn ui-click" id="offlineCollectBtn">COLLECT</button>
+    </div>
+  </div>
+
   <div class="top-buttons">
     <button class="icon-btn ui-click" id="profileBtn">
       <img src="UserIcon.png" alt="Profile" />
@@ -23,6 +48,11 @@
   <div class="score-bar" id="scoreBar">
     <img src="FishIcon1.png" alt="Fish" />
     <span id="scoreText">0</span>
+  </div>
+
+  <div class="crystal-bar" id="crystalBar">
+    <img src="CrystalIcon.png" alt="Crystal" />
+    <span id="crystalText">0</span>
   </div>
 
   <div class="income-bar" id="incomeBar">
@@ -42,6 +72,9 @@
   <div class="bottom-buttons">
     <button class="bottom-btn ui-click" id="shopBtn">
       <img src="ShopIcon.png" alt="Shop" />
+    </button>
+    <button class="bottom-btn ui-click" id="potionShopBtn">
+      <img src="PotionShop.png" alt="Potions" />
     </button>
     <button class="bottom-btn ui-click" id="topBtn">
       <img src="TopIcon.png" alt="Top" />
@@ -73,7 +106,21 @@
       <div class="menu-title">SHOP</div>
       <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
     </div>
+    <div class="shop-tabs">
+      <div class="shop-tab active ui-click" data-shop-tab="click">CLICK</div>
+      <div class="shop-tab ui-click" data-shop-tab="auto">AUTO</div>
+      <div class="shop-tab ui-click" data-shop-tab="rebirth">REBIRTH</div>
+    </div>
     <div class="menu-content" id="shopItems"></div>
+  </div>
+
+  <!-- ========== POTION SHOP ========== -->
+  <div class="menu" id="potionMenu">
+    <div class="menu-header">
+      <div class="menu-title">POTION SHOP</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content" id="potionItems"></div>
   </div>
 
   <!-- ========== SETTINGS ========== -->
@@ -97,16 +144,15 @@
         </div>
         <div class="toggle on ui-click" id="soundToggle"></div>
       </div>
-
       <div class="setting-row" style="flex-direction:column;align-items:stretch;">
         <div>
           <div class="setting-label">PROMO CODE</div>
           <div class="setting-desc">Enter a code to get rewards</div>
         </div>
-        <input type="text" class="name-input" id="promoInput" placeholder="ENTER CODE" maxlength="30" style="text-transform:uppercase;text-align:center;letter-spacing:2px;margin-top:8px;" />
+        <input type="text" class="name-input" id="promoInput" placeholder="ENTER CODE" maxlength="30"
+          style="text-transform:uppercase;text-align:center;letter-spacing:2px;margin-top:8px;" />
         <button class="recovery-btn ui-click" id="promoBtn" style="margin-top:8px;">ACTIVATE</button>
       </div>
-
       <button class="danger-btn ui-click" id="resetBtn">RESET PROGRESS</button>
     </div>
   </div>
@@ -127,7 +173,6 @@
           <input type="text" class="name-input" id="nameInput" placeholder="Your name" maxlength="20" />
         </div>
       </div>
-
       <div id="authBlock">
         <div class="recovery-block">
           <div class="recovery-title">YOUR RECOVERY CODE</div>
@@ -137,17 +182,19 @@
         </div>
         <div class="recovery-block">
           <div class="recovery-title">RESTORE PROGRESS</div>
-          <input type="text" class="name-input" id="restoreInput" placeholder="XXXX-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px;text-align:center;" />
+          <input type="text" class="name-input" id="restoreInput" placeholder="XXXX-XXXX" maxlength="9"
+            style="text-transform:uppercase;letter-spacing:2px;text-align:center;" />
           <button class="recovery-btn ui-click" id="restoreBtn">RESTORE</button>
         </div>
       </div>
-
       <div class="stats-block">
         <div class="stats-title">STATISTICS</div>
         <div class="stat-row"><span class="stat-label">Play time</span><span class="stat-value" id="statTime">0m</span></div>
         <div class="stat-row"><span class="stat-label">Total clicks</span><span class="stat-value" id="statClicks">0</span></div>
         <div class="stat-row"><span class="stat-label">Total fish earned</span><span class="stat-value" id="statFish">0</span></div>
         <div class="stat-row"><span class="stat-label">Current fish</span><span class="stat-value" id="statCurrentFish">0</span></div>
+        <div class="stat-row"><span class="stat-label">Crystals</span><span class="stat-value crystal-text" id="statCrystals">0</span></div>
+        <div class="stat-row"><span class="stat-label">Rebirths</span><span class="stat-value" id="statRebirths">0</span></div>
         <div class="stat-row"><span class="stat-label">Golden waves</span><span class="stat-value" id="statGoldWaves">0</span></div>
         <div class="stat-row"><span class="stat-label">Diamond waves</span><span class="stat-value" id="statDiamondWaves">0</span></div>
         <div class="stat-row"><span class="stat-label">Items bought</span><span class="stat-value" id="statItems">0</span></div>
@@ -180,8 +227,6 @@
       <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
     </div>
     <div class="menu-content">
-
-      <!-- Быстрые кнопки рыбы -->
       <div class="admin-section">
         <div class="admin-label">YOURSELF — QUICK FISH</div>
         <div class="admin-row">
@@ -192,25 +237,34 @@
           <button class="admin-btn ui-click" data-addfish="1000000">+1M</button>
         </div>
       </div>
-
-      <!-- Кастомные значения -->
+      <div class="admin-section admin-crystal-section">
+        <div class="admin-label crystal-admin-label">💎 YOURSELF — CRYSTALS</div>
+        <div class="admin-row">
+          <button class="admin-btn crystal-admin ui-click" data-addcrystal="1">+1</button>
+          <button class="admin-btn crystal-admin ui-click" data-addcrystal="10">+10</button>
+          <button class="admin-btn crystal-admin ui-click" data-addcrystal="100">+100</button>
+          <button class="admin-btn crystal-admin ui-click" data-addcrystal="1000">+1K</button>
+        </div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input smart-num-input" id="adminCustomCrystal" placeholder="±crystals (10, 100...)" />
+          <button class="admin-btn crystal-admin ui-click" id="adminCustomCrystalBtn">ADD</button>
+        </div>
+      </div>
       <div class="admin-section">
         <div class="admin-label">YOURSELF — CUSTOM VALUES</div>
         <div class="admin-input-row">
-          <input type="number" class="admin-input" id="adminCustomFish" placeholder="±fish" />
+          <input type="text" class="admin-input smart-num-input" id="adminCustomFish" placeholder="±fish (10K, 5M, 1B...)" />
           <button class="admin-btn ui-click" id="adminCustomFishBtn">ADD FISH</button>
         </div>
         <div class="admin-input-row">
-          <input type="number" class="admin-input" id="adminCustomClick" placeholder="click power" min="0" />
+          <input type="text" class="admin-input smart-num-input" id="adminCustomClick" placeholder="click power (1K, 5M...)" />
           <button class="admin-btn ui-click" id="adminCustomClickBtn">SET CLICK</button>
         </div>
         <div class="admin-input-row">
-          <input type="number" class="admin-input" id="adminCustomAuto" placeholder="auto/sec" min="0" />
+          <input type="text" class="admin-input smart-num-input" id="adminCustomAuto" placeholder="auto/sec (100, 10K...)" />
           <button class="admin-btn ui-click" id="adminCustomAutoBtn">SET AUTO</button>
         </div>
       </div>
-
-      <!-- Волны -->
       <div class="admin-section">
         <div class="admin-label">YOURSELF — WAVES</div>
         <div class="admin-row">
@@ -218,21 +272,62 @@
           <button class="admin-btn diamond-admin ui-click" id="adminDiamondWave">DIAMOND WAVE</button>
         </div>
       </div>
-
-      <!-- Синхронизация -->
+      <div class="admin-section">
+        <div class="admin-label">YOURSELF — SPECIAL WAVES</div>
+        <div class="admin-row">
+          <button class="admin-btn rainbow-admin ui-click" id="adminRainbowWave">RAINBOW x100</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminAmethystWave">AMETHYST x100</button>
+        </div>
+      </div>
+      <div class="admin-section admin-reward-all-section">
+        <div class="admin-label admin-reward-label">🎁 REWARD ALL PLAYERS</div>
+        <div class="admin-reward-hint">Отправить рыбу / кристаллы / волну ВСЕМ</div>
+        <div class="admin-reward-block">
+          <div class="admin-reward-sub">FISH</div>
+          <div class="admin-input-row">
+            <input type="text" class="admin-input smart-num-input" id="adminRewardAllFish" placeholder="кол-во рыб (10K, 5M...)" />
+            <button class="admin-btn ui-click" id="adminRewardAllBtn">SEND ALL</button>
+          </div>
+          <div class="admin-row" style="margin-top:6px;">
+            <button class="admin-btn ui-click admin-preset-btn" data-preset-target="adminRewardAllFish" data-preset="1000">+1K</button>
+            <button class="admin-btn ui-click admin-preset-btn" data-preset-target="adminRewardAllFish" data-preset="10000">+10K</button>
+            <button class="admin-btn ui-click admin-preset-btn" data-preset-target="adminRewardAllFish" data-preset="100000">+100K</button>
+            <button class="admin-btn ui-click admin-preset-btn" data-preset-target="adminRewardAllFish" data-preset="1000000">+1M</button>
+          </div>
+        </div>
+        <div class="admin-reward-block">
+          <div class="admin-reward-sub crystal-text">CRYSTALS</div>
+          <div class="admin-input-row">
+            <input type="text" class="admin-input smart-num-input" id="adminRewardAllCrystals" placeholder="кол-во кристаллов..." />
+            <button class="admin-btn crystal-admin ui-click" id="adminRewardAllCrystalsBtn">SEND ALL</button>
+          </div>
+        </div>
+        <div class="admin-reward-block">
+          <div class="admin-reward-sub">WAVES</div>
+          <div class="admin-row">
+            <button class="admin-btn gold-admin ui-click" id="adminRewardAllGold">🌊 GOLD ALL</button>
+            <button class="admin-btn diamond-admin ui-click" id="adminRewardAllDiamond">💎 DIAMOND ALL</button>
+          </div>
+        </div>
+        <div class="admin-reward-block">
+          <div class="admin-reward-sub rainbow-text">SPECIAL WAVES</div>
+          <div class="admin-row">
+            <button class="admin-btn rainbow-admin ui-click" id="adminRewardAllRainbow">🌈 RAINBOW ALL</button>
+            <button class="admin-btn amethyst-admin ui-click" id="adminRewardAllAmethyst">💜 AMETHYST ALL</button>
+          </div>
+        </div>
+      </div>
       <div class="admin-section">
         <div class="admin-label">SYNC ADMIN ACCOUNT</div>
         <div class="admin-row">
           <button class="admin-btn ui-click" id="adminPushSave">PUSH TO CLOUD</button>
           <button class="admin-btn ui-click" id="adminPullSave">PULL FROM CLOUD</button>
         </div>
-        <div class="admin-input-row">
+        <div class="admin-input-row" style="margin-top:6px;">
           <input type="text" class="admin-input" id="adminSyncUid" placeholder="UID to sync from..." />
           <button class="admin-btn ui-click" id="adminSyncFromUid">SYNC</button>
         </div>
       </div>
-
-      <!-- Управление игроками -->
       <div class="admin-section">
         <div class="admin-label">MANAGE PLAYERS</div>
         <div class="admin-row">
@@ -241,7 +336,6 @@
         </div>
         <input type="text" class="admin-input" id="adminPlayerSearch" placeholder="Search by name or UID..." style="margin-top:8px;width:100%;" />
       </div>
-
       <div id="adminPlayersList"></div>
     </div>
   </div>
@@ -249,14 +343,8 @@
   <!-- ========== FIREBASE ========== -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import {
-      getAuth, signInAnonymously, signOut, onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import {
-      getDatabase, ref, set, get, remove,
-      onValue, query, orderByChild, limitToLast
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
+    import { getAuth, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref, set, get, remove, update, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
     const firebaseConfig = {
       apiKey: "AIzaSyDfCr33dnJ2crM9BZmFSvlmA5BNcXIJ5yY",
       authDomain: "catclicker-2998d.firebaseapp.com",
@@ -267,20 +355,78 @@
       appId: "1:185760820116:web:95fb8977544eaa13dc7d81",
       measurementId: "G-HHWZSHN38R"
     };
-
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
-
-    window.fb = {
-      auth, db,
-      signInAnonymously, signOut, onAuthStateChanged,
-      ref, set, get, remove, onValue, query, orderByChild, limitToLast
-    };
-
+    window.fb = { auth, db, signInAnonymously, signOut, onAuthStateChanged, ref, set, get, remove, update, onValue, query, orderByChild, limitToLast };
     window.dispatchEvent(new Event("firebase-ready"));
   </script>
 
-  <script src="game.js"></script>
-</body>
+  <!-- Smart input formatting -->
+  <script>
+    (function () {
+      const SUFFIXES = [ { v: 1e15, s: "Qa" }, { v: 1e12, s: "T" }, { v: 1e9, s: "B" }, { v: 1e6, s: "M" }, { v: 1e3, s: "K" } ];
+      function fmtLive(n) {
+        if (isNaN(n) || n === null) return "";
+        const neg = n < 0; const abs = Math.abs(n);
+        let str = "";
+        for (const { v, s } of SUFFIXES) { if (abs >= v) { str = (abs / v).toFixed(2).replace(/\.?0+$/, "") + s; break; } }
+        if (!str) str = Math.floor(abs).toString();
+        return (neg ? "-" : "") + str;
+      }
+      function parseSmartInput(str) {
+        if (!str) return NaN;
+        str = str.trim();
+        const neg = str.startsWith("-");
+        if (neg) str = str.slice(1);
+        str = str.toUpperCase();
+        const map = { QA: 1e15, T: 1e12, B: 1e9, M: 1e6, K: 1e3 };
+        for (const [s, mult] of Object.entries(map)) {
+          if (str.endsWith(s)) { const n = parseFloat(str.slice(0, -s.length)); return isNaN(n) ? NaN : Math.floor((neg ? -1 : 1) * n * mult); }
+        }
+        const n = parseInt(str);
+        return isNaN(n) ? NaN : (neg ? -n : n);
+      }
+      function attachSmartInput(inp) {
+        let hint = inp.nextElementSibling;
+        if (!hint || !hint.classList.contains("smart-hint")) {
+          hint = document.createElement("div");
+          hint.className = "smart-hint";
+          inp.parentNode.insertBefore(hint, inp.nextSibling);
+        }
+        inp.addEventListener("input", () => {
+          const raw = inp.value.trim();
+          if (!raw) { hint.textContent = ""; return; }
+          const val = parseSmartInput(raw);
+          if (isNaN(val)) { hint.textContent = "❌ invalid"; hint.style.color = "#ff4444"; }
+          else { hint.textContent = "= " + fmtLive(val); hint.style.color = "#4ade80"; }
+        });
+        inp.addEventListener("blur", () => { setTimeout(() => { hint.textContent = ""; }, 300); });
+      }
+      function initSmartInputs() {
+        document.querySelectorAll(".smart-num-input").forEach(inp => {
+          if (!inp.dataset.smartAttached) { inp.dataset.smartAttached = "1"; attachSmartInput(inp); }
+        });
+      }
+      initSmartInputs();
+      new MutationObserver(initSmartInputs).observe(document.body, { childList: true, subtree: true });
+    })();
+  </script>
+
+  <!-- Preset buttons -->
+  <script>
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".admin-preset-btn");
+      if (!btn) return;
+      const targetId = btn.dataset.presetTarget;
+      const val = btn.dataset.preset;
+      if (!targetId || !val) return;
+      const inp = document.getElementById(targetId);
+      if (inp) { inp.value = val; inp.dispatchEvent(new Event("input")); }
+    });
+  </script>
+
+  <script charset="UTF-8" src="game.js"></script>
+  <script charset="UTF-8" src="admin.js"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9fee11c70bb71c01',t:'MTc3OTMwODcxNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
