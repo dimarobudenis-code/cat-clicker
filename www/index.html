@@ -4,612 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cat Clicker</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      overflow: hidden;
-      background: black;
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-family: 'Press Start 2P', cursive;
-    }
-
-    canvas#space {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 0;
-    }
-
-    .wave-glow {
-      position: fixed;
-      inset: 0;
-      z-index: 2;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.5s ease;
-    }
-
-    .wave-glow.active { opacity: 1; }
-    .wave-glow.gold { animation: pulseGold 1.5s ease-in-out infinite; }
-    .wave-glow.diamond { animation: pulseDiamond 1.2s ease-in-out infinite; }
-
-    @keyframes pulseGold {
-      0%, 100% { box-shadow: inset 0 0 100px 30px rgba(255, 215, 0, 0.25); }
-      50% { box-shadow: inset 0 0 150px 50px rgba(255, 215, 0, 0.4); }
-    }
-
-    @keyframes pulseDiamond {
-      0%, 100% { box-shadow: inset 0 0 100px 30px rgba(0, 180, 255, 0.25); }
-      50% { box-shadow: inset 0 0 150px 50px rgba(0, 180, 255, 0.45); }
-    }
-
-    .top-buttons {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      z-index: 11;
-      display: flex;
-      gap: 4px;
-    }
-
-    .icon-btn {
-      background: transparent;
-      border: none;
-      outline: none;
-      cursor: pointer;
-      padding: 0;
-      appearance: none;
-      -webkit-tap-highlight-color: transparent;
-      transition: transform 0.1s ease;
-    }
-
-    .icon-btn:hover { transform: scale(1.1); }
-    .icon-btn:active { transform: scale(0.9); }
-
-    .icon-btn img {
-      width: 44px;
-      height: 44px;
-      object-fit: contain;
-      image-rendering: pixelated;
-      user-select: none;
-      -webkit-user-drag: none;
-      display: block;
-    }
-
-    .score-bar {
-      position: fixed;
-      top: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 20px;
-    }
-
-    .score-bar img {
-      width: 36px;
-      height: 36px;
-      object-fit: contain;
-      image-rendering: pixelated;
-    }
-
-    .score-bar span {
-      color: #fff;
-      font-size: 20px;
-      min-width: 40px;
-    }
-
-    .multiplier-badge {
-      position: fixed;
-      top: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      color: #ffd700;
-      font-size: 12px;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      text-align: center;
-    }
-
-    .multiplier-badge.active { opacity: 1; }
-    .multiplier-badge.diamond-text { color: #00b4ff; }
-
-    .center { position: relative; z-index: 3; }
-
-    .cat-btn {
-      background: transparent;
-      border: none;
-      outline: none;
-      cursor: pointer;
-      padding: 0;
-      appearance: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .cat-btn img {
-      width: 300px;
-      height: 300px;
-      object-fit: contain;
-      display: block;
-      user-select: none;
-      -webkit-user-drag: none;
-      transition: transform 0.12s ease;
-      image-rendering: pixelated;
-    }
-
-    .cat-btn.clicked img { transform: scale(1.12); }
-
-    .flying-fish {
-      position: fixed;
-      width: 32px;
-      height: 32px;
-      object-fit: contain;
-      pointer-events: none;
-      z-index: 20;
-      image-rendering: pixelated;
-    }
-
-    .bottom-buttons {
-      position: fixed;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .bottom-btn {
-      background: transparent;
-      border: none;
-      outline: none;
-      cursor: pointer;
-      padding: 0;
-      appearance: none;
-      -webkit-tap-highlight-color: transparent;
-      transition: transform 0.15s ease;
-    }
-
-    .bottom-btn:hover { transform: scale(1.1); }
-    .bottom-btn:active { transform: scale(0.95); }
-
-    .bottom-btn img {
-      width: 128px;
-      height: 128px;
-      object-fit: contain;
-      image-rendering: pixelated;
-      user-select: none;
-      -webkit-user-drag: none;
-      display: block;
-    }
-
-    .waves-bar {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      display: flex;
-      gap: 24px;
-      align-items: flex-end;
-    }
-
-    .wave-block {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .wave-label { font-size: 7px; text-align: center; line-height: 1.4; }
-    .wave-label.gold-label { color: #ffd700; }
-    .wave-label.diamond-label { color: #00b4ff; }
-
-    .wave-progress-bg {
-      width: 120px;
-      height: 14px;
-      background: #1a1a2e;
-      border: 2px solid #3a3a5a;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .wave-progress-fill {
-      height: 100%;
-      width: 0%;
-      transition: width 0.2s ease;
-    }
-
-    .wave-progress-fill.gold-fill { background: #ffd700; }
-    .wave-progress-fill.diamond-fill { background: #00b4ff; }
-    .wave-progress-bg.active-wave { border-color: #fff; }
-
-    .wave-timer { font-size: 7px; color: #aaa; height: 12px; }
-
-    .overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.7);
-      z-index: 50;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-
-    .overlay.active { opacity: 1; pointer-events: all; }
-
-    .menu {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(0.8);
-      z-index: 60;
-      width: 420px;
-      max-height: 80vh;
-      background: #1a1a2e;
-      border: 4px solid #e0e0e0;
-      border-radius: 4px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      display: flex;
-      flex-direction: column;
-      image-rendering: pixelated;
-      box-shadow: 8px 8px 0px #000, inset 0 0 0 2px #2a2a4a;
-    }
-
-    .menu.active {
-      opacity: 1;
-      pointer-events: all;
-      transform: translate(-50%, -50%) scale(1);
-    }
-
-    .menu-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px 20px;
-      border-bottom: 4px solid #e0e0e0;
-    }
-
-    .menu-title { color: #fff; font-size: 14px; }
-
-    .close-btn {
-      background: transparent;
-      border: none;
-      outline: none;
-      cursor: pointer;
-      padding: 0;
-      transition: transform 0.1s ease;
-    }
-
-    .close-btn:hover { transform: scale(1.15); }
-    .close-btn:active { transform: scale(0.9); }
-
-    .close-btn img {
-      width: 56px;
-      height: 56px;
-      object-fit: contain;
-      image-rendering: pixelated;
-    }
-
-    .menu-content {
-      padding: 16px;
-      overflow-y: auto;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .menu-content::-webkit-scrollbar { width: 8px; }
-    .menu-content::-webkit-scrollbar-track { background: #1a1a2e; }
-    .menu-content::-webkit-scrollbar-thumb { background: #e0e0e0; }
-
-    .shop-item {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 12px 14px;
-      background: #2a2a4a;
-      border: 2px solid #3a3a5a;
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease;
-    }
-
-    .shop-item:hover { background: #3a3a5a; border-color: #fff; }
-    .shop-item:active { background: #4a4a6a; }
-    .shop-item.locked { opacity: 0.4; cursor: not-allowed; }
-    .shop-item.locked:hover { background: #2a2a4a; border-color: #3a3a5a; }
-
-    .item-info { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-    .item-name { color: #fff; font-size: 10px; }
-    .item-desc { color: #aaa; font-size: 7px; line-height: 1.4; }
-
-    .item-price {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #ffd700;
-      font-size: 10px;
-      white-space: nowrap;
-    }
-
-    .item-price img { width: 32px; height: 32px; image-rendering: pixelated; }
-    .item-owned { color: #888; font-size: 8px; text-align: right; min-width: 30px; margin-top: 4px; }
-
-    .setting-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px;
-      background: #2a2a4a;
-      border: 2px solid #3a3a5a;
-      gap: 12px;
-    }
-
-    .setting-label { color: #fff; font-size: 10px; flex: 1; }
-    .setting-desc { color: #888; font-size: 6px; margin-top: 4px; line-height: 1.4; }
-
-    .toggle {
-      width: 50px;
-      height: 24px;
-      background: #1a1a2e;
-      border: 2px solid #e0e0e0;
-      position: relative;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-
-    .toggle::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 16px;
-      height: 16px;
-      background: #888;
-      transition: left 0.2s ease, background 0.2s ease;
-    }
-
-    .toggle.on::after { left: 28px; background: #4ade80; }
-
-    .danger-btn {
-      width: 100%;
-      padding: 14px;
-      background: #4a1a1a;
-      border: 2px solid #ff4444;
-      color: #ff6666;
-      font-family: inherit;
-      font-size: 10px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .danger-btn:hover { background: #ff4444; color: #fff; }
-
-    .profile-top {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px;
-      background: #2a2a4a;
-      border: 2px solid #3a3a5a;
-    }
-
-    .avatar-wrapper {
-      position: relative;
-      width: 70px;
-      height: 70px;
-      flex-shrink: 0;
-      cursor: pointer;
-      border: 2px solid #e0e0e0;
-      background: #1a1a2e;
-      overflow: hidden;
-      border-radius: 50%;
-    }
-
-    .avatar-wrapper img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      image-rendering: pixelated;
-    }
-
-    .avatar-wrapper::after {
-      content: '+';
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 22px;
-      height: 22px;
-      background: #4ade80;
-      color: #000;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: monospace;
-      font-weight: bold;
-      border-radius: 50%;
-      border: 2px solid #1a1a2e;
-    }
-
-    .profile-info { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-
-    .name-input {
-      background: #1a1a2e;
-      border: 2px solid #3a3a5a;
-      color: #fff;
-      font-family: inherit;
-      font-size: 10px;
-      padding: 8px;
-      outline: none;
-      width: 100%;
-    }
-
-    .name-input:focus { border-color: #fff; }
-
-    .google-btn {
-      width: 100%;
-      padding: 12px;
-      background: #4285f4;
-      border: 2px solid #5294ff;
-      color: #fff;
-      font-family: inherit;
-      font-size: 9px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .google-btn:hover { background: #5294ff; }
-    .google-btn:active { transform: scale(0.98); }
-
-    .signout-btn {
-      width: 100%;
-      padding: 12px;
-      background: #2a2a4a;
-      border: 2px solid #3a3a5a;
-      color: #aaa;
-      font-family: inherit;
-      font-size: 9px;
-      cursor: pointer;
-    }
-
-    .signout-btn:hover { background: #3a3a5a; color: #fff; }
-
-    .auth-status {
-      font-size: 8px;
-      color: #4ade80;
-      text-align: center;
-      padding: 6px;
-    }
-
-    .stats-block { display: flex; flex-direction: column; gap: 8px; }
-    .stats-title { color: #ffd700; font-size: 10px; padding: 4px 0; }
-
-    .stat-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 12px;
-      background: #2a2a4a;
-      border: 2px solid #3a3a5a;
-      font-size: 9px;
-    }
-
-    .stat-label { color: #aaa; }
-    .stat-value { color: #fff; }
-
-    .top-tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 4px;
-    }
-
-    .top-tab {
-      flex: 1;
-      padding: 10px 4px;
-      background: #2a2a4a;
-      border: 2px solid #3a3a5a;
-      color: #888;
-      font-family: inherit;
-      font-size: 8px;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.15s ease;
-    }
-
-    .top-tab.active {
-      background: #3a3a5a;
-      border-color: #fff;
-      color: #fff;
-    }
-
-    .top-tab:hover { color: #fff; }
-
-    .top-entry {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      background: #2a2a4a;
-      border: 2px solid #3a3a5a;
-    }
-
-    .top-rank {
-      width: 28px;
-      font-size: 11px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-
-    .top-rank.gold { color: #ffd700; }
-    .top-rank.silver { color: #c0c0c0; }
-    .top-rank.bronze { color: #cd7f32; }
-    .top-rank.normal { color: #888; }
-
-    .top-avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: #1a1a2e;
-      border: 2px solid #3a3a5a;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .top-avatar img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      image-rendering: pixelated;
-    }
-
-    .top-name {
-      flex: 1;
-      color: #fff;
-      font-size: 9px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .top-value {
-      color: #ffd700;
-      font-size: 9px;
-      white-space: nowrap;
-    }
-
-    .top-entry.you {
-      background: #3a4a2a;
-      border-color: #4ade80;
-    }
-
-    .top-loading {
-      text-align: center;
-      color: #888;
-      font-size: 8px;
-      padding: 20px;
-    }
-
-    @media (max-width: 768px) {
-      .cat-btn img { width: 220px; height: 220px; }
-      .menu { width: 90vw; }
-    }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
@@ -628,6 +23,12 @@
   <div class="score-bar" id="scoreBar">
     <img src="FishIcon1.png" alt="Fish" />
     <span id="scoreText">0</span>
+  </div>
+
+  <div class="income-bar" id="incomeBar">
+    <span class="income-click" id="incomeClick">+1/click</span>
+    <span class="income-sep">•</span>
+    <span class="income-sec" id="incomeSec">+0/sec</span>
   </div>
 
   <div class="multiplier-badge" id="multBadge">x2 GOLDEN WAVE</div>
@@ -666,6 +67,7 @@
 
   <div class="overlay" id="overlay"></div>
 
+  <!-- SHOP -->
   <div class="menu" id="shopMenu">
     <div class="menu-header">
       <div class="menu-title">SHOP</div>
@@ -674,6 +76,7 @@
     <div class="menu-content" id="shopItems"></div>
   </div>
 
+  <!-- SETTINGS -->
   <div class="menu" id="settingsMenu">
     <div class="menu-header">
       <div class="menu-title">SETTINGS</div>
@@ -683,7 +86,7 @@
       <div class="setting-row">
         <div>
           <div class="setting-label">WAVE GLOW</div>
-          <div class="setting-desc">Show glow on screen edges during waves</div>
+          <div class="setting-desc">Show glow during waves</div>
         </div>
         <div class="toggle on ui-click" id="glowToggle"></div>
       </div>
@@ -694,10 +97,21 @@
         </div>
         <div class="toggle on ui-click" id="soundToggle"></div>
       </div>
+
+      <div class="setting-row" style="flex-direction:column;align-items:stretch;">
+        <div>
+          <div class="setting-label">PROMO CODE</div>
+          <div class="setting-desc">Enter a code to get rewards</div>
+        </div>
+        <input type="text" class="name-input" id="promoInput" placeholder="ENTER CODE" maxlength="20" style="text-transform:uppercase;text-align:center;letter-spacing:2px;margin-top:8px;" />
+        <button class="recovery-btn ui-click" id="promoBtn" style="margin-top:8px;">ACTIVATE</button>
+      </div>
+
       <button class="danger-btn ui-click" id="resetBtn">RESET PROGRESS</button>
     </div>
   </div>
 
+  <!-- PROFILE -->
   <div class="menu" id="profileMenu">
     <div class="menu-header">
       <div class="menu-title">PROFILE</div>
@@ -715,7 +129,17 @@
       </div>
 
       <div id="authBlock">
-        <button class="google-btn ui-click" id="googleBtn">SIGN IN WITH GOOGLE</button>
+        <div class="recovery-block">
+          <div class="recovery-title">YOUR RECOVERY CODE</div>
+          <div class="recovery-code" id="recoveryCode">--------</div>
+          <div class="recovery-hint">Save this code to restore progress!</div>
+          <button class="recovery-btn ui-click" id="copyCodeBtn">COPY CODE</button>
+        </div>
+        <div class="recovery-block">
+          <div class="recovery-title">RESTORE PROGRESS</div>
+          <input type="text" class="name-input" id="restoreInput" placeholder="XXXX-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px;text-align:center;" />
+          <button class="recovery-btn ui-click" id="restoreBtn">RESTORE</button>
+        </div>
       </div>
 
       <div class="stats-block">
@@ -724,7 +148,6 @@
         <div class="stat-row"><span class="stat-label">Total clicks</span><span class="stat-value" id="statClicks">0</span></div>
         <div class="stat-row"><span class="stat-label">Total fish earned</span><span class="stat-value" id="statFish">0</span></div>
         <div class="stat-row"><span class="stat-label">Current fish</span><span class="stat-value" id="statCurrentFish">0</span></div>
-        <div class="stat-row"><span class="stat-label">Cat index</span><span class="stat-value" id="statCatIndex">1</span></div>
         <div class="stat-row"><span class="stat-label">Golden waves</span><span class="stat-value" id="statGoldWaves">0</span></div>
         <div class="stat-row"><span class="stat-label">Diamond waves</span><span class="stat-value" id="statDiamondWaves">0</span></div>
         <div class="stat-row"><span class="stat-label">Items bought</span><span class="stat-value" id="statItems">0</span></div>
@@ -732,6 +155,7 @@
     </div>
   </div>
 
+  <!-- TOP -->
   <div class="menu" id="topMenu">
     <div class="menu-header">
       <div class="menu-title">TOP PLAYERS</div>
@@ -749,27 +173,71 @@
     </div>
   </div>
 
-  <!-- ========== FIREBASE ========== -->
+  <!-- ADMIN PANEL -->
+  <div class="menu" id="adminMenu">
+    <div class="menu-header">
+      <div class="menu-title admin-title">⚡ ADMIN</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content">
+
+      <div class="admin-section">
+        <div class="admin-label">YOURSELF — QUICK FISH</div>
+        <div class="admin-row">
+          <button class="admin-btn ui-click" data-addfish="100">+100</button>
+          <button class="admin-btn ui-click" data-addfish="1000">+1K</button>
+          <button class="admin-btn ui-click" data-addfish="10000">+10K</button>
+          <button class="admin-btn ui-click" data-addfish="100000">+100K</button>
+          <button class="admin-btn ui-click" data-addfish="1000000">+1M</button>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-label">YOURSELF — CUSTOM VALUES</div>
+        <div class="admin-input-row">
+          <input type="number" class="admin-input" id="adminCustomFish" placeholder="±fish" />
+          <button class="admin-btn ui-click" id="adminCustomFishBtn">ADD FISH</button>
+        </div>
+        <div class="admin-input-row">
+          <input type="number" class="admin-input" id="adminCustomClick" placeholder="click power" min="0" />
+          <button class="admin-btn ui-click" id="adminCustomClickBtn">SET CLICK</button>
+        </div>
+        <div class="admin-input-row">
+          <input type="number" class="admin-input" id="adminCustomAuto" placeholder="auto/sec" min="0" />
+          <button class="admin-btn ui-click" id="adminCustomAutoBtn">SET AUTO</button>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-label">YOURSELF — WAVES</div>
+        <div class="admin-row">
+          <button class="admin-btn gold-admin ui-click" id="adminGoldWave">GOLD WAVE</button>
+          <button class="admin-btn diamond-admin ui-click" id="adminDiamondWave">DIAMOND WAVE</button>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-label">MANAGE PLAYERS</div>
+        <div class="admin-row">
+          <button class="admin-btn ui-click" id="adminViewPlayers">LOAD PLAYERS</button>
+          <button class="admin-btn danger-admin ui-click" id="adminClearTop">CLEAR TOP</button>
+        </div>
+        <input type="text" class="admin-input" id="adminPlayerSearch" placeholder="Search by name or UID..." style="margin-top:8px;width:100%;" />
+      </div>
+
+      <div id="adminPlayersList"></div>
+    </div>
+  </div>
+
+  <!-- FIREBASE -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
-      getAuth,
-      GoogleAuthProvider,
-      signInWithPopup,
-      signInWithRedirect,
-      getRedirectResult,
-      signOut,
-      onAuthStateChanged
+      getAuth, signInAnonymously, signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import {
-      getDatabase,
-      ref,
-      set,
-      get,
-      onValue,
-      query,
-      orderByChild,
-      limitToLast
+      getDatabase, ref, set, get, remove,
+      onValue, query, orderByChild, limitToLast
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
     const firebaseConfig = {
@@ -786,820 +254,16 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
-    const provider = new GoogleAuthProvider();
 
     window.fb = {
-      auth, db, provider,
-      signInWithPopup, signInWithRedirect, getRedirectResult,
-      signOut, onAuthStateChanged,
-      ref, set, get, onValue, query, orderByChild, limitToLast,
-      GoogleAuthProvider
+      auth, db,
+      signInAnonymously, signOut, onAuthStateChanged,
+      ref, set, get, remove, onValue, query, orderByChild, limitToLast
     };
 
     window.dispatchEvent(new Event("firebase-ready"));
   </script>
 
-  <script>
-    /* ========== ЗВУКИ (Web Audio API) ========== */
-    let audioCtx = null;
-    let soundEnabled = true;
-
-    function ensureAudio() {
-      if (!audioCtx) {
-        try {
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        } catch (e) {
-          console.warn("Audio not supported");
-        }
-      }
-      if (audioCtx && audioCtx.state === "suspended") {
-        audioCtx.resume();
-      }
-      return audioCtx;
-    }
-
-    // Звук UI клика (как мышка) - короткий мягкий клик
-    function playUIClick() {
-      if (!soundEnabled) return;
-      const ctx = ensureAudio();
-      if (!ctx) return;
-
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = "square";
-      osc.frequency.setValueAtTime(800, now);
-      osc.frequency.exponentialRampToValueAtTime(400, now + 0.04);
-
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + 0.06);
-    }
-
-    // Звук клика по коту - более "сочный", пиксельный pop
-    function playCatClick() {
-      if (!soundEnabled) return;
-      const ctx = ensureAudio();
-      if (!ctx) return;
-
-      const now = ctx.currentTime;
-
-      // Главный тон
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(600, now);
-      osc.frequency.exponentialRampToValueAtTime(900, now + 0.05);
-      osc.frequency.exponentialRampToValueAtTime(500, now + 0.12);
-
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + 0.15);
-
-      // Второй слой для "толщины"
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-
-      osc2.type = "square";
-      osc2.frequency.setValueAtTime(300, now);
-      osc2.frequency.exponentialRampToValueAtTime(450, now + 0.05);
-
-      gain2.gain.setValueAtTime(0.06, now);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-
-      osc2.start(now);
-      osc2.stop(now + 0.1);
-    }
-
-    // Звук покупки в магазине
-    function playBuySound() {
-      if (!soundEnabled) return;
-      const ctx = ensureAudio();
-      if (!ctx) return;
-
-      const now = ctx.currentTime;
-      const notes = [523, 659, 784]; // C, E, G - мажорный аккорд
-
-      notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const t = now + i * 0.05;
-
-        osc.type = "square";
-        osc.frequency.setValueAtTime(freq, t);
-
-        gain.gain.setValueAtTime(0.08, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(t);
-        osc.stop(t + 0.2);
-      });
-    }
-
-    // Звук активации волны
-    function playWaveSound(type) {
-      if (!soundEnabled) return;
-      const ctx = ensureAudio();
-      if (!ctx) return;
-
-      const now = ctx.currentTime;
-      const isGold = type === "gold";
-      const baseFreq = isGold ? 440 : 660;
-
-      // Восходящий звук
-      for (let i = 0; i < 4; i++) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const t = now + i * 0.06;
-
-        osc.type = "square";
-        osc.frequency.setValueAtTime(baseFreq * Math.pow(1.26, i), t);
-
-        gain.gain.setValueAtTime(0.12, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start(t);
-        osc.stop(t + 0.15);
-      }
-    }
-
-    // Делегирование звука клика для всех UI-кнопок
-    document.addEventListener("click", (e) => {
-      const target = e.target.closest(".ui-click");
-      if (target) playUIClick();
-    }, true);
-
-    /* ========== КОСМОС ========== */
-    const canvas = document.getElementById("space");
-    const ctx = canvas.getContext("2d");
-    let w, h, particles = [];
-
-    function resize() {
-      w = canvas.width = window.innerWidth;
-      h = canvas.height = window.innerHeight;
-      createParticles();
-    }
-
-    function createParticles() {
-      particles = [];
-      const count = Math.floor((w * h) / 9000);
-      for (let i = 0; i < count; i++) {
-        particles.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          size: Math.random() * 2 + 0.5,
-          speedY: Math.random() * 1.2 + 0.2,
-          alpha: Math.random() * 0.8 + 0.2
-        });
-      }
-    }
-
-    function drawParticles() {
-      ctx.clearRect(0, 0, w, h);
-      for (const p of particles) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${p.alpha})`;
-        ctx.fill();
-        p.y += p.speedY;
-        if (p.y > h + 5) { p.y = -5; p.x = Math.random() * w; }
-      }
-      requestAnimationFrame(drawParticles);
-    }
-
-    window.addEventListener("resize", resize);
-    resize();
-    drawParticles();
-
-    /* ========== ДАННЫЕ ========== */
-    let score = 0;
-    let clickPower = 1;
-    let autoClicker = 0;
-    let goldClicks = 0;
-    let diamondClicks = 0;
-    let activeFish = 0;
-    const MAX_FISH = 3;
-
-    let waveActive = false;
-    let waveMultiplier = 1;
-    let activeWaveType = null;
-
-    const GOLD_REQUIRED = 100;
-    const DIAMOND_REQUIRED = 1000;
-
-    let stats = {
-      totalClicks: 0,
-      totalFishEarned: 0,
-      playTimeSec: 0,
-      goldWaves: 0,
-      diamondWaves: 0,
-      itemsBought: 0
-    };
-
-    let profile = { name: "", avatar: null };
-    let settings = { glowEnabled: true, soundEnabled: true };
-
-    let currentUser = null;
-
-    const scoreText = document.getElementById("scoreText");
-    const scoreBar = document.getElementById("scoreBar");
-    const catBtn = document.getElementById("catBtn");
-    const waveGlow = document.getElementById("waveGlow");
-    const multBadge = document.getElementById("multBadge");
-    const goldFill = document.getElementById("goldFill");
-    const diamondFill = document.getElementById("diamondFill");
-    const goldBg = document.getElementById("goldBg");
-    const diamondBg = document.getElementById("diamondBg");
-    const goldTimer = document.getElementById("goldTimer");
-    const diamondTimer = document.getElementById("diamondTimer");
-
-    const shopItemsData = [
-      { name: "Double Fish", desc: "+1 fish per click", basePrice: 10, owned: 0, apply: () => { clickPower++; } },
-      { name: "Auto Fisher", desc: "1 fish per second", basePrice: 50, owned: 0, apply: () => { autoClicker++; } },
-      { name: "Lucky Paw", desc: "+5 fish per click", basePrice: 200, owned: 0, apply: () => { clickPower += 5; } },
-      { name: "Golden Cat", desc: "+25 fish per click", basePrice: 1000, owned: 0, apply: () => { clickPower += 25; } },
-      { name: "Fish Factory", desc: "10 fish per second", basePrice: 5000, owned: 0, apply: () => { autoClicker += 10; } }
-    ];
-
-    function getPrice(item) {
-      return Math.floor(item.basePrice * Math.pow(1.5, item.owned));
-    }
-
-    function buildSaveData() {
-      return {
-        score, clickPower, autoClicker, goldClicks, diamondClicks,
-        shopOwned: shopItemsData.map(i => i.owned),
-        stats, profile, settings
-      };
-    }
-
-    function applySaveData(data) {
-      if (!data) return;
-      score = data.score || 0;
-      clickPower = data.clickPower || 1;
-      autoClicker = data.autoClicker || 0;
-      goldClicks = data.goldClicks || 0;
-      diamondClicks = data.diamondClicks || 0;
-      if (data.shopOwned) {
-        data.shopOwned.forEach((count, i) => {
-          if (shopItemsData[i]) shopItemsData[i].owned = count;
-        });
-      }
-      if (data.stats) stats = { ...stats, ...data.stats };
-      if (data.profile) profile = { ...profile, ...data.profile };
-      if (data.settings) settings = { ...settings, ...data.settings };
-
-      soundEnabled = settings.soundEnabled !== false;
-
-      updateScore();
-      updateWaveBars();
-      applyProfile();
-      applySettings();
-    }
-
-    /* ========== СОХРАНЕНИЕ ========== */
-    function saveGame() {
-      const data = buildSaveData();
-      localStorage.setItem("catclicker_save", JSON.stringify(data));
-
-      if (currentUser && window.fb) {
-        try {
-          window.fb.set(window.fb.ref(window.fb.db, `users/${currentUser.uid}`), data);
-        } catch (e) { console.warn("Cloud save failed", e); }
-      }
-    }
-
-    function loadGame() {
-      const raw = localStorage.getItem("catclicker_save");
-      if (!raw) return;
-      try {
-        applySaveData(JSON.parse(raw));
-      } catch (e) {}
-    }
-
-    setInterval(saveGame, 5000);
-    setInterval(() => { stats.playTimeSec++; }, 1000);
-    setInterval(() => { if (currentUser) pushToLeaderboard(); }, 10000);
-
-    function formatTime(sec) {
-      const h = Math.floor(sec / 3600);
-      const m = Math.floor((sec % 3600) / 60);
-      if (h > 0) return `${h}h ${m}m`;
-      return `${m}m`;
-    }
-
-    /* ========== КЛИК ПО КОТУ ========== */
-    catBtn.addEventListener("click", () => {
-      catBtn.classList.add("clicked");
-      setTimeout(() => catBtn.classList.remove("clicked"), 120);
-
-      playCatClick();
-
-      const totalFish = clickPower * waveMultiplier;
-
-      const fishToSpawn = Math.min(MAX_FISH - activeFish, 3);
-      for (let i = 0; i < fishToSpawn; i++) {
-        setTimeout(() => spawnFlyingFish(), i * 60);
-      }
-
-      score += totalFish;
-      stats.totalClicks++;
-      stats.totalFishEarned += totalFish;
-
-      if (!waveActive) {
-        goldClicks++;
-        diamondClicks++;
-        checkWaves();
-      }
-
-      updateScore();
-      updateWaveBars();
-    });
-
-    catBtn.addEventListener("mousedown", (e) => e.preventDefault());
-
-    function updateScore() {
-      scoreText.textContent = score;
-      renderShop();
-    }
-
-    /* ========== ВОЛНЫ ========== */
-    function updateWaveBars() {
-      const goldPct = Math.min((goldClicks / GOLD_REQUIRED) * 100, 100);
-      const diamondPct = Math.min((diamondClicks / DIAMOND_REQUIRED) * 100, 100);
-      goldFill.style.width = goldPct + "%";
-      diamondFill.style.width = diamondPct + "%";
-    }
-
-    function checkWaves() {
-      if (diamondClicks >= DIAMOND_REQUIRED) {
-        diamondClicks = 0;
-        startWave("diamond", 5, 10);
-      } else if (goldClicks >= GOLD_REQUIRED) {
-        goldClicks = 0;
-        startWave("gold", 2, 5);
-      }
-    }
-
-    function startWave(type, multiplier, duration) {
-      waveActive = true;
-      waveMultiplier = multiplier;
-      activeWaveType = type;
-
-      if (type === "gold") stats.goldWaves++;
-      else stats.diamondWaves++;
-
-      playWaveSound(type);
-
-      if (settings.glowEnabled) {
-        waveGlow.className = "wave-glow active " + type;
-      }
-
-      multBadge.textContent = `x${multiplier} ${type === "gold" ? "GOLDEN" : "DIAMOND"} WAVE`;
-      multBadge.className = "multiplier-badge active" + (type === "diamond" ? " diamond-text" : "");
-
-      const bg = type === "gold" ? goldBg : diamondBg;
-      bg.classList.add("active-wave");
-
-      const timerEl = type === "gold" ? goldTimer : diamondTimer;
-      let remaining = duration;
-      timerEl.textContent = remaining + "s";
-
-      const interval = setInterval(() => {
-        remaining--;
-        timerEl.textContent = remaining + "s";
-        if (remaining <= 0) {
-          clearInterval(interval);
-          endWave(type);
-        }
-      }, 1000);
-
-      updateWaveBars();
-    }
-
-    function endWave(type) {
-      waveActive = false;
-      waveMultiplier = 1;
-      activeWaveType = null;
-      waveGlow.className = "wave-glow";
-      multBadge.className = "multiplier-badge";
-      const bg = type === "gold" ? goldBg : diamondBg;
-      bg.classList.remove("active-wave");
-      const timerEl = type === "gold" ? goldTimer : diamondTimer;
-      timerEl.textContent = "";
-      updateWaveBars();
-    }
-
-    setInterval(() => {
-      if (autoClicker > 0) {
-        const earned = autoClicker * waveMultiplier;
-        score += earned;
-        stats.totalFishEarned += earned;
-        updateScore();
-      }
-    }, 1000);
-
-    /* ========== РЫБКА ========== */
-    function spawnFlyingFish() {
-      if (activeFish >= MAX_FISH) return;
-      activeFish++;
-
-      const fish = document.createElement("img");
-      fish.src = "FishIcon1.png";
-      fish.classList.add("flying-fish");
-      document.body.appendChild(fish);
-
-      const btnRect = catBtn.getBoundingClientRect();
-      const angle = Math.random() * Math.PI * 2;
-      const offset = 20 + Math.random() * 30;
-      const startX = btnRect.left + btnRect.width / 2 - 16 + Math.cos(angle) * offset;
-      const startY = btnRect.top + btnRect.height / 2 - 16 + Math.sin(angle) * offset;
-
-      const barRect = scoreBar.getBoundingClientRect();
-      const endX = barRect.left + 18 - 16;
-      const endY = barRect.top + barRect.height / 2 - 16;
-
-      fish.style.left = startX + "px";
-      fish.style.top = startY + "px";
-
-      const arcSide = (Math.random() - 0.5) * 100;
-      const arcUp = -(30 + Math.random() * 60);
-      const duration = 900 + Math.random() * 300;
-      const startTime = performance.now();
-
-      function animateFish(now) {
-        const elapsed = now - startTime;
-        let t = Math.min(elapsed / duration, 1);
-        t = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-
-        const curve = Math.sin(Math.PI * t);
-        const currentX = startX + (endX - startX) * t + arcSide * curve;
-        const currentY = startY + (endY - startY) * t + arcUp * curve;
-        const scale = 1 - t * 0.3;
-
-        fish.style.left = currentX + "px";
-        fish.style.top = currentY + "px";
-        fish.style.transform = `scale(${scale})`;
-        fish.style.opacity = 1 - t * 0.2;
-
-        if (t < 1) {
-          requestAnimationFrame(animateFish);
-        } else {
-          fish.remove();
-          activeFish--;
-          scoreBar.style.transition = "transform 0.1s ease";
-          scoreBar.style.transform = "translateX(-50%) scale(1.1)";
-          setTimeout(() => {
-            scoreBar.style.transform = "translateX(-50%) scale(1)";
-          }, 100);
-        }
-      }
-
-      requestAnimationFrame(animateFish);
-    }
-
-    /* ========== МЕНЮ ========== */
-    const overlay = document.getElementById("overlay");
-    const shopMenu = document.getElementById("shopMenu");
-    const settingsMenu = document.getElementById("settingsMenu");
-    const profileMenu = document.getElementById("profileMenu");
-    const topMenu = document.getElementById("topMenu");
-
-    function openMenu(menu) {
-      closeAllMenus();
-      overlay.classList.add("active");
-      menu.classList.add("active");
-      if (menu === shopMenu) renderShop();
-      if (menu === profileMenu) renderStats();
-      if (menu === topMenu) loadTop();
-    }
-
-    function closeAllMenus() {
-      overlay.classList.remove("active");
-      [shopMenu, settingsMenu, profileMenu, topMenu].forEach(m => m.classList.remove("active"));
-    }
-
-    document.getElementById("shopBtn").addEventListener("click", () => openMenu(shopMenu));
-    document.getElementById("settingsBtn").addEventListener("click", () => openMenu(settingsMenu));
-    document.getElementById("profileBtn").addEventListener("click", () => openMenu(profileMenu));
-    document.getElementById("topBtn").addEventListener("click", () => openMenu(topMenu));
-
-    document.querySelectorAll("[data-close]").forEach(btn => {
-      btn.addEventListener("click", closeAllMenus);
-    });
-    overlay.addEventListener("click", closeAllMenus);
-
-    /* ========== МАГАЗИН ========== */
-    const shopItemsEl = document.getElementById("shopItems");
-
-    function renderShop() {
-      shopItemsEl.innerHTML = "";
-      for (const item of shopItemsData) {
-        const price = getPrice(item);
-        const canBuy = score >= price;
-        const el = document.createElement("div");
-        el.className = "shop-item" + (canBuy ? "" : " locked");
-        el.innerHTML = `
-          <div class="item-info">
-            <div class="item-name">${item.name}</div>
-            <div class="item-desc">${item.desc}</div>
-          </div>
-          <div>
-            <div class="item-price"><img src="FishIcon1.png" alt="fish" />${price}</div>
-            <div class="item-owned">x${item.owned}</div>
-          </div>
-        `;
-        if (canBuy) {
-          el.addEventListener("click", () => {
-            score -= price;
-            item.owned++;
-            item.apply();
-            stats.itemsBought++;
-            playBuySound();
-            updateScore();
-            saveGame();
-          });
-        }
-        shopItemsEl.appendChild(el);
-      }
-    }
-
-    /* ========== НАСТРОЙКИ ========== */
-    const glowToggle = document.getElementById("glowToggle");
-    const soundToggle = document.getElementById("soundToggle");
-
-    glowToggle.addEventListener("click", () => {
-      settings.glowEnabled = !settings.glowEnabled;
-      applySettings();
-      saveGame();
-      if (!settings.glowEnabled) {
-        waveGlow.className = "wave-glow";
-      } else if (waveActive && activeWaveType) {
-        waveGlow.className = "wave-glow active " + activeWaveType;
-      }
-    });
-
-    soundToggle.addEventListener("click", () => {
-      settings.soundEnabled = !settings.soundEnabled;
-      soundEnabled = settings.soundEnabled;
-      applySettings();
-      saveGame();
-    });
-
-    function applySettings() {
-      glowToggle.classList.toggle("on", settings.glowEnabled);
-      soundToggle.classList.toggle("on", settings.soundEnabled);
-    }
-
-    document.getElementById("resetBtn").addEventListener("click", () => {
-      if (confirm("Reset ALL progress? This cannot be undone!")) {
-        localStorage.removeItem("catclicker_save");
-        location.reload();
-      }
-    });
-
-    /* ========== ПРОФИЛЬ ========== */
-    const avatarImg = document.getElementById("avatarImg");
-    const avatarInput = document.getElementById("avatarInput");
-    const nameInput = document.getElementById("nameInput");
-
-    avatarInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        profile.avatar = ev.target.result;
-        avatarImg.src = profile.avatar;
-        saveGame();
-      };
-      reader.readAsDataURL(file);
-    });
-
-    nameInput.addEventListener("input", (e) => {
-      profile.name = e.target.value;
-      saveGame();
-    });
-
-    function applyProfile() {
-      if (profile.avatar) avatarImg.src = profile.avatar;
-      if (profile.name) nameInput.value = profile.name;
-    }
-
-    function renderStats() {
-      document.getElementById("statTime").textContent = formatTime(stats.playTimeSec);
-      document.getElementById("statClicks").textContent = stats.totalClicks;
-      document.getElementById("statFish").textContent = stats.totalFishEarned;
-      document.getElementById("statCurrentFish").textContent = score;
-      document.getElementById("statCatIndex").textContent = "1";
-      document.getElementById("statGoldWaves").textContent = stats.goldWaves;
-      document.getElementById("statDiamondWaves").textContent = stats.diamondWaves;
-      document.getElementById("statItems").textContent = stats.itemsBought;
-    }
-
-    /* ========== ТОП ========== */
-    let currentTopTab = "fish";
-    let cachedLeaderboard = [];
-
-    document.querySelectorAll(".top-tab").forEach(tab => {
-      tab.addEventListener("click", () => {
-        document.querySelectorAll(".top-tab").forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-        currentTopTab = tab.dataset.tab;
-        renderTop(cachedLeaderboard);
-      });
-    });
-
-    async function loadTop() {
-      const topList = document.getElementById("topList");
-      topList.innerHTML = `<div class="top-loading">Loading...</div>`;
-
-      if (!window.fb) {
-        topList.innerHTML = `<div class="top-loading">Firebase not loaded</div>`;
-        return;
-      }
-
-      try {
-        const snap = await window.fb.get(window.fb.ref(window.fb.db, "leaderboard"));
-        const data = snap.val() || {};
-        cachedLeaderboard = Object.values(data);
-        renderTop(cachedLeaderboard);
-      } catch (e) {
-        topList.innerHTML = `<div class="top-loading">Failed to load top</div>`;
-        console.error(e);
-      }
-    }
-
-    function renderTop(list) {
-      const topList = document.getElementById("topList");
-      topList.innerHTML = "";
-
-      if (!list.length) {
-        topList.innerHTML = `<div class="top-loading">No players yet.<br/>Sign in to be the first!</div>`;
-        return;
-      }
-
-      const sortKey = currentTopTab;
-      const sorted = [...list].sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0)).slice(0, 50);
-
-      sorted.forEach((player, idx) => {
-        const rank = idx + 1;
-        let rankClass = "normal";
-        if (rank === 1) rankClass = "gold";
-        else if (rank === 2) rankClass = "silver";
-        else if (rank === 3) rankClass = "bronze";
-
-        const isYou = currentUser && player.uid === currentUser.uid;
-        const el = document.createElement("div");
-        el.className = "top-entry" + (isYou ? " you" : "");
-
-        let value;
-        if (currentTopTab === "fish") value = (player.fish || 0).toLocaleString();
-        else if (currentTopTab === "clicks") value = (player.clicks || 0).toLocaleString();
-        else value = formatTime(player.time || 0);
-
-        const avatarSrc = player.avatar || "CatIcon1.png";
-        const name = player.name || "Anonymous";
-
-        el.innerHTML = `
-          <div class="top-rank ${rankClass}">#${rank}</div>
-          <div class="top-avatar"><img src="${avatarSrc}" alt="" onerror="this.src='CatIcon1.png'" /></div>
-          <div class="top-name">${escapeHtml(name)}</div>
-          <div class="top-value">${value}</div>
-        `;
-
-        topList.appendChild(el);
-      });
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement("div");
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    async function pushToLeaderboard() {
-      if (!currentUser || !window.fb) return;
-      try {
-        const entry = {
-          uid: currentUser.uid,
-          name: profile.name || currentUser.displayName || "Anonymous",
-          avatar: profile.avatar || currentUser.photoURL || null,
-          fish: stats.totalFishEarned,
-          clicks: stats.totalClicks,
-          time: stats.playTimeSec,
-          updated: Date.now()
-        };
-        await window.fb.set(window.fb.ref(window.fb.db, `leaderboard/${currentUser.uid}`), entry);
-      } catch (e) {
-        console.warn("Leaderboard push failed", e);
-      }
-    }
-
-    /* ========== FIREBASE АВТОРИЗАЦИЯ ========== */
-    function initAuth() {
-      const fb = window.fb;
-      if (!fb) return;
-
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-      async function doSignIn() {
-        try {
-          if (isMobile) {
-            await fb.signInWithRedirect(fb.auth, fb.provider);
-          } else {
-            await fb.signInWithPopup(fb.auth, fb.provider);
-          }
-        } catch (e) {
-          alert("Sign in failed: " + e.message);
-          console.error(e);
-        }
-      }
-
-      fb.getRedirectResult(fb.auth).catch((e) => {
-        if (e.code !== "auth/no-auth-event") {
-          console.warn("Redirect result error:", e);
-        }
-      });
-
-      const authBlock = document.getElementById("authBlock");
-      const googleBtn = document.getElementById("googleBtn");
-      if (googleBtn) googleBtn.addEventListener("click", doSignIn);
-
-      fb.onAuthStateChanged(fb.auth, async (user) => {
-        currentUser = user;
-
-        if (user) {
-          try {
-            const snap = await fb.get(fb.ref(fb.db, `users/${user.uid}`));
-            const cloudData = snap.val();
-
-            if (cloudData) {
-              const localData = JSON.parse(localStorage.getItem("catclicker_save") || "null");
-              const cloudFish = (cloudData.stats && cloudData.stats.totalFishEarned) || 0;
-              const localFish = (localData && localData.stats && localData.stats.totalFishEarned) || 0;
-
-              if (cloudFish > localFish) {
-                applySaveData(cloudData);
-              }
-            }
-          } catch (e) { console.warn("Cloud load failed", e); }
-
-          if (!profile.name && user.displayName) {
-            profile.name = user.displayName;
-            nameInput.value = profile.name;
-          }
-          if (!profile.avatar && user.photoURL) {
-            profile.avatar = user.photoURL;
-            avatarImg.src = profile.avatar;
-          }
-
-          saveGame();
-          pushToLeaderboard();
-
-          authBlock.innerHTML = `
-            <div class="auth-status">Signed in as ${escapeHtml(user.displayName || user.email)}</div>
-            <button class="signout-btn ui-click" id="signoutBtn">SIGN OUT</button>
-          `;
-          document.getElementById("signoutBtn").addEventListener("click", async () => {
-            await fb.signOut(fb.auth);
-            location.reload();
-          });
-        } else {
-          authBlock.innerHTML = `<button class="google-btn ui-click" id="googleBtn">SIGN IN WITH GOOGLE</button>`;
-          document.getElementById("googleBtn").addEventListener("click", doSignIn);
-        }
-      });
-    }
-
-    if (window.fb) {
-      initAuth();
-    } else {
-      window.addEventListener("firebase-ready", initAuth);
-    }
-
-    /* ========== СТАРТ ========== */
-    loadGame();
-  </script>
+  <script src="game.js"></script>
 </body>
 </html>
