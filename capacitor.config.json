@@ -1,12 +1,5 @@
 {
-  "name": "cat-clicker",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "@capacitor/android": "^6.1.2",
-    "@capacitor/core": "^6.1.2"
-  },
-  "devDependencies": {
-    "@capacitor/cli": "^6.1.2"
-  }
+  "appId": "com.catclicker.game",
+  "appName": "Cat Clicker",
+  "webDir": "www"
 }
