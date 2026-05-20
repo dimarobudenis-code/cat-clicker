@@ -67,7 +67,7 @@
 
   <div class="overlay" id="overlay"></div>
 
-  <!-- SHOP -->
+  <!-- ========== SHOP ========== -->
   <div class="menu" id="shopMenu">
     <div class="menu-header">
       <div class="menu-title">SHOP</div>
@@ -76,7 +76,7 @@
     <div class="menu-content" id="shopItems"></div>
   </div>
 
-  <!-- SETTINGS -->
+  <!-- ========== SETTINGS ========== -->
   <div class="menu" id="settingsMenu">
     <div class="menu-header">
       <div class="menu-title">SETTINGS</div>
@@ -103,7 +103,7 @@
           <div class="setting-label">PROMO CODE</div>
           <div class="setting-desc">Enter a code to get rewards</div>
         </div>
-        <input type="text" class="name-input" id="promoInput" placeholder="ENTER CODE" maxlength="20" style="text-transform:uppercase;text-align:center;letter-spacing:2px;margin-top:8px;" />
+        <input type="text" class="name-input" id="promoInput" placeholder="ENTER CODE" maxlength="30" style="text-transform:uppercase;text-align:center;letter-spacing:2px;margin-top:8px;" />
         <button class="recovery-btn ui-click" id="promoBtn" style="margin-top:8px;">ACTIVATE</button>
       </div>
 
@@ -111,7 +111,7 @@
     </div>
   </div>
 
-  <!-- PROFILE -->
+  <!-- ========== PROFILE ========== -->
   <div class="menu" id="profileMenu">
     <div class="menu-header">
       <div class="menu-title">PROFILE</div>
@@ -155,7 +155,7 @@
     </div>
   </div>
 
-  <!-- TOP -->
+  <!-- ========== TOP ========== -->
   <div class="menu" id="topMenu">
     <div class="menu-header">
       <div class="menu-title">TOP PLAYERS</div>
@@ -173,7 +173,7 @@
     </div>
   </div>
 
-  <!-- ADMIN PANEL -->
+  <!-- ========== ADMIN PANEL ========== -->
   <div class="menu" id="adminMenu">
     <div class="menu-header">
       <div class="menu-title admin-title">⚡ ADMIN</div>
@@ -181,6 +181,7 @@
     </div>
     <div class="menu-content">
 
+      <!-- Быстрые кнопки рыбы -->
       <div class="admin-section">
         <div class="admin-label">YOURSELF — QUICK FISH</div>
         <div class="admin-row">
@@ -192,6 +193,7 @@
         </div>
       </div>
 
+      <!-- Кастомные значения -->
       <div class="admin-section">
         <div class="admin-label">YOURSELF — CUSTOM VALUES</div>
         <div class="admin-input-row">
@@ -208,6 +210,7 @@
         </div>
       </div>
 
+      <!-- Волны -->
       <div class="admin-section">
         <div class="admin-label">YOURSELF — WAVES</div>
         <div class="admin-row">
@@ -216,6 +219,20 @@
         </div>
       </div>
 
+      <!-- Синхронизация -->
+      <div class="admin-section">
+        <div class="admin-label">SYNC ADMIN ACCOUNT</div>
+        <div class="admin-row">
+          <button class="admin-btn ui-click" id="adminPushSave">PUSH TO CLOUD</button>
+          <button class="admin-btn ui-click" id="adminPullSave">PULL FROM CLOUD</button>
+        </div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input" id="adminSyncUid" placeholder="UID to sync from..." />
+          <button class="admin-btn ui-click" id="adminSyncFromUid">SYNC</button>
+        </div>
+      </div>
+
+      <!-- Управление игроками -->
       <div class="admin-section">
         <div class="admin-label">MANAGE PLAYERS</div>
         <div class="admin-row">
@@ -229,7 +246,7 @@
     </div>
   </div>
 
-  <!-- FIREBASE -->
+  <!-- ========== FIREBASE ========== -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {

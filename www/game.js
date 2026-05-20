@@ -4,17 +4,12 @@
 
 // ===================== ADMIN UIDS =====================
 const ADMIN_UIDS = [
-  "V7fKSuIYmpaJPTturXzJWdScaF32"
+  "V7fKSuIYmpaJPTturXzJWdScaF32",  // браузер
+  "wN1SFDtgooNQ18CbDiAZVDN5K3e2"   // APK
 ];
 // ======================================================
 
 // ===================== PROMO CODES ====================
-// Награды:
-//   fish        — добавить рыбы
-//   clickPower  — добавить клик-силы
-//   autoClicker — добавить авто-кликеров
-//   queueWaves  — массив волн, которые сыграют подряд автоматически
-//                 каждая волна: { type: "gold"|"diamond" }
 const PROMO_CODES = {
   "RELEASE": {
     fish: 1000,
@@ -394,7 +389,6 @@ function endWave(type) {
   updateWaveBars();
 }
 
-// Запускает волны одну за другой
 function queueWavesSequentially(waves) {
   let idx = 0;
   function next() {
@@ -570,11 +564,23 @@ function applySettings() {
   if (soundToggle) soundToggle.classList.toggle("on", settings.soundEnabled);
 }
 
-on("resetBtn", "click", () => {
-  if (confirm("Reset ALL progress? This cannot be undone!")) {
-    localStorage.removeItem("catclicker_save");
-    location.reload();
+/* ИСПРАВЛЕНО: сброс прогресса теперь чистит и облако */
+on("resetBtn", "click", async () => {
+  if (!confirm("Reset ALL progress? This cannot be undone!")) return;
+
+  localStorage.removeItem("catclicker_save");
+
+  if (currentUser && window.fb) {
+    try {
+      await window.fb.remove(window.fb.ref(window.fb.db, `users/${currentUser.uid}`));
+      await window.fb.remove(window.fb.ref(window.fb.db, `leaderboard/${currentUser.uid}`));
+      if (recoveryCode) {
+        await window.fb.remove(window.fb.ref(window.fb.db, `recovery/${recoveryCode}`));
+      }
+    } catch (e) { console.warn("Cloud reset failed", e); }
   }
+
+  location.reload();
 });
 
 /* ========== ПРОМОКОДЫ ========== */
@@ -611,9 +617,6 @@ on("promoBtn", "click", () => {
 });
 
 /* ========== СЕКРЕТНЫЙ ВХОД (ТОЛЬКО ДЛЯ АДМИНА) ========== */
-// Проверка происходит ДО подсчёта тапов
-// Если игрок не админ — счётчик даже не увеличивается
-// Это значит что обычные игроки могут жать сколько угодно — ничего не произойдёт
 let settingsTapCount = 0;
 let settingsTapTimer = null;
 
@@ -621,12 +624,7 @@ if (settingsMenu) {
   const settingsTitle = settingsMenu.querySelector(".menu-title");
   if (settingsTitle) {
     settingsTitle.addEventListener("click", () => {
-      // ===== ЗАЩИТА: только админ может открыть =====
-      if (!currentUser || !ADMIN_UIDS.includes(currentUser.uid)) {
-        return; // не админ — выходим, ничего не делаем
-      }
-      // ==============================================
-
+      if (!currentUser || !ADMIN_UIDS.includes(currentUser.uid)) return;
       settingsTapCount++;
       clearTimeout(settingsTapTimer);
       settingsTapTimer = setTimeout(() => { settingsTapCount = 0; }, 3000);
@@ -640,11 +638,13 @@ if (settingsMenu) {
 }
 
 /* ========== АДМИН: СЕБЕ ========== */
-// Дополнительная защита: даже если хакер найдёт data-addfish в HTML
-// и попробует кликнуть — без isAdmin ничего не сработает
+function checkAdmin() {
+  return isAdmin && currentUser && ADMIN_UIDS.includes(currentUser.uid);
+}
+
 document.querySelectorAll("[data-addfish]").forEach(btn => {
   btn.addEventListener("click", () => {
-    if (!isAdmin || !currentUser || !ADMIN_UIDS.includes(currentUser.uid)) return;
+    if (!checkAdmin()) return;
     const amount = parseInt(btn.dataset.addfish);
     score += amount;
     stats.totalFishEarned += amount;
@@ -652,10 +652,6 @@ document.querySelectorAll("[data-addfish]").forEach(btn => {
     saveGame();
   });
 });
-
-function checkAdmin() {
-  return isAdmin && currentUser && ADMIN_UIDS.includes(currentUser.uid);
-}
 
 on("adminCustomFishBtn", "click", () => {
   if (!checkAdmin()) return;
@@ -705,6 +701,49 @@ on("adminDiamondWave", "click", () => {
   if (!checkAdmin()) return;
   if (waveActive) endWave(activeWaveType);
   startWave("diamond", 5, 10);
+});
+
+/* ========== АДМИН: СИНХРОНИЗАЦИЯ ========== */
+on("adminPushSave", "click", async () => {
+  if (!checkAdmin() || !window.fb) return;
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `users/${currentUser.uid}`), buildSaveData());
+    alert("✓ Pushed to cloud!");
+  } catch (e) { alert("Failed: " + e.message); }
+});
+
+on("adminPullSave", "click", async () => {
+  if (!checkAdmin() || !window.fb) return;
+  try {
+    const snap = await window.fb.get(window.fb.ref(window.fb.db, `users/${currentUser.uid}`));
+    const data = snap.val();
+    if (!data) { alert("No cloud data found"); return; }
+    applySaveData(data);
+    alert("✓ Pulled from cloud!");
+  } catch (e) { alert("Failed: " + e.message); }
+});
+
+on("adminSyncFromUid", "click", async () => {
+  if (!checkAdmin() || !window.fb) return;
+  const inp = $("adminSyncUid");
+  if (!inp) return;
+  const sourceUid = inp.value.trim();
+  if (!sourceUid) { alert("Enter UID"); return; }
+
+  try {
+    const snap = await window.fb.get(window.fb.ref(window.fb.db, `users/${sourceUid}`));
+    const data = snap.val();
+    if (!data) { alert("No data for this UID"); return; }
+    if (!confirm("Replace your progress with data from this UID?")) return;
+
+    const ourCode = recoveryCode;
+    applySaveData(data);
+    recoveryCode = ourCode;
+    updateRecoveryDisplay();
+    saveGame();
+    alert("✓ Synced from UID!");
+    inp.value = "";
+  } catch (e) { alert("Failed: " + e.message); }
 });
 
 /* ========== АДМИН: ИГРОКИ ========== */
@@ -1042,6 +1081,7 @@ async function ensureRecoveryCode() {
   }
 }
 
+/* УЛУЧШЕНО: копирует данные себе, не трогая исходный аккаунт */
 async function restoreFromCode(code) {
   const fb = window.fb;
   if (!fb || !code) return;
@@ -1054,19 +1094,27 @@ async function restoreFromCode(code) {
     const snap = await fb.get(fb.ref(fb.db, `recovery/${code}`));
     const targetUid = snap.val();
     if (!targetUid) { alert("Code not found!"); return; }
+
     const dataSnap = await fb.get(fb.ref(fb.db, `users/${targetUid}`));
     const data = dataSnap.val();
     if (!data) { alert("No data found!"); return; }
-    if (!confirm("This will REPLACE your current progress. Continue?")) return;
+
+    if (!confirm("This will REPLACE your current progress with the code's progress. Continue?")) return;
+
+    // Сохраняем свой recovery code чтобы не потерять
+    const ourOwnRecoveryCode = recoveryCode;
+
     applySaveData(data);
+
+    // Восстанавливаем наш собственный код (не трогаем чужой)
+    recoveryCode = ourOwnRecoveryCode;
+    updateRecoveryDisplay();
+
     if (currentUser) {
-      recoveryCode = code;
       await fb.set(fb.ref(fb.db, `users/${currentUser.uid}`), buildSaveData());
-      await fb.set(fb.ref(fb.db, `recovery/${code}`), currentUser.uid);
-      updateRecoveryDisplay();
     }
     saveGame();
-    alert("Progress restored!");
+    alert("Progress restored! You now have a copy of the source account.");
   } catch (e) {
     console.error(e);
     alert("Restore failed: " + e.message);
