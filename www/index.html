@@ -11,17 +11,17 @@
   <canvas id="space"></canvas>
   <div class="wave-glow" id="waveGlow"></div>
 
-  <!-- Неоновый счётчик наград -->
+  <!-- &#1053;&#1077;&#1086;&#1085;&#1086;&#1074;&#1099;&#1081; &#1089;&#1095;&#1105;&#1090;&#1095;&#1080;&#1082; &#1085;&#1072;&#1075;&#1088;&#1072;&#1076; -->
   <div class="neon-counter" id="neonCounter">
     <div class="neon-counter-inner" id="neonCounterInner">
-      <div class="neon-counter-icon">🐟</div>
-      <div class="neon-counter-text" id="neonCounterText">ТЫ ПОЛУЧИШЬ</div>
+      <div class="neon-counter-icon"></div>
+      <div class="neon-counter-text" id="neonCounterText">&#1058;&#1067; &#1055;&#1054;&#1051;&#1059;&#1063;&#1048;&#1064;&#1068;</div>
       <div class="neon-counter-amount" id="neonCounterAmount">+0</div>
-      <div class="neon-counter-timer" id="neonCounterTimer">через 0 сек</div>
+      <div class="neon-counter-timer" id="neonCounterTimer">&#1095;&#1077;&#1088;&#1077;&#1079; 0 &#1089;&#1077;&#1082;</div>
     </div>
   </div>
 
-  <!-- Оффлайн popup -->
+  <!-- &#1054;&#1092;&#1092;&#1083;&#1072;&#1081;&#1085; popup -->
   <div class="offline-popup" id="offlinePopup">
     <div class="offline-popup-inner">
       <div class="offline-icon"><img src="OfflineCatIcon.png" alt="offline cat" /></div>
@@ -57,7 +57,7 @@
 
   <div class="income-bar" id="incomeBar">
     <span class="income-click" id="incomeClick">+1/click</span>
-    <span class="income-sep">•</span>
+    <span class="income-sep">�</span>
     <span class="income-sec" id="incomeSec">+0/sec</span>
   </div>
 
@@ -80,6 +80,8 @@
       <img src="TopIcon.png" alt="Top" />
     </button>
   </div>
+
+  <div class="potion-status-bar" id="potionStatusBar"></div>
 
   <div class="waves-bar">
     <div class="wave-block">
@@ -186,6 +188,13 @@
             style="text-transform:uppercase;letter-spacing:2px;text-align:center;" />
           <button class="recovery-btn ui-click" id="restoreBtn">RESTORE</button>
         </div>
+        <div class="recovery-block">
+          <div class="recovery-title">SAVE FILE</div>
+          <div class="recovery-hint">Export your progress to a file or import it back later</div>
+          <button class="recovery-btn ui-click" id="exportSaveBtn">EXPORT SAVE</button>
+          <button class="recovery-btn ui-click" id="importSaveBtn">IMPORT SAVE</button>
+          <input type="file" id="importSaveInput" accept="application/json,.json,.save" style="display:none" />
+        </div>
       </div>
       <div class="stats-block">
         <div class="stats-title">STATISTICS</div>
@@ -213,6 +222,9 @@
         <div class="top-tab active ui-click" data-tab="fish">FISH</div>
         <div class="top-tab ui-click" data-tab="clicks">CLICKS</div>
         <div class="top-tab ui-click" data-tab="time">TIME</div>
+        <div class="top-tab ui-click" data-tab="rebirths">REBIRTHS</div>
+        <div class="top-tab ui-click" data-tab="amethysts">AMETHYSTS</div>
+        <div class="top-tab ui-click" data-tab="eggs">EGGS</div>
       </div>
       <div id="topList">
         <div class="top-loading">Loading...</div>
@@ -223,12 +235,12 @@
   <!-- ========== ADMIN PANEL ========== -->
   <div class="menu" id="adminMenu">
     <div class="menu-header">
-      <div class="menu-title admin-title">⚡ ADMIN</div>
+      <div class="menu-title admin-title"> ADMIN</div>
       <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
     </div>
     <div class="menu-content">
       <div class="admin-section">
-        <div class="admin-label">YOURSELF — QUICK FISH</div>
+        <div class="admin-label">YOURSELF � QUICK FISH</div>
         <div class="admin-row">
           <button class="admin-btn ui-click" data-addfish="100">+100</button>
           <button class="admin-btn ui-click" data-addfish="1000">+1K</button>
@@ -238,7 +250,7 @@
         </div>
       </div>
       <div class="admin-section admin-crystal-section">
-        <div class="admin-label crystal-admin-label">💎 YOURSELF — CRYSTALS</div>
+        <div class="admin-label crystal-admin-label"> YOURSELF � CRYSTALS</div>
         <div class="admin-row">
           <button class="admin-btn crystal-admin ui-click" data-addcrystal="1">+1</button>
           <button class="admin-btn crystal-admin ui-click" data-addcrystal="10">+10</button>
@@ -246,14 +258,14 @@
           <button class="admin-btn crystal-admin ui-click" data-addcrystal="1000">+1K</button>
         </div>
         <div class="admin-input-row">
-          <input type="text" class="admin-input smart-num-input" id="adminCustomCrystal" placeholder="±crystals (10, 100...)" />
+          <input type="text" class="admin-input smart-num-input" id="adminCustomCrystal" placeholder="�crystals (10, 100...)" />
           <button class="admin-btn crystal-admin ui-click" id="adminCustomCrystalBtn">ADD</button>
         </div>
       </div>
       <div class="admin-section">
-        <div class="admin-label">YOURSELF — CUSTOM VALUES</div>
+        <div class="admin-label">YOURSELF � CUSTOM VALUES</div>
         <div class="admin-input-row">
-          <input type="text" class="admin-input smart-num-input" id="adminCustomFish" placeholder="±fish (10K, 5M, 1B...)" />
+          <input type="text" class="admin-input smart-num-input" id="adminCustomFish" placeholder="�fish (10K, 5M, 1B...)" />
           <button class="admin-btn ui-click" id="adminCustomFishBtn">ADD FISH</button>
         </div>
         <div class="admin-input-row">
@@ -266,26 +278,46 @@
         </div>
       </div>
       <div class="admin-section">
-        <div class="admin-label">YOURSELF — WAVES</div>
+        <div class="admin-label">YOURSELF � WAVES</div>
         <div class="admin-row">
           <button class="admin-btn gold-admin ui-click" id="adminGoldWave">GOLD WAVE</button>
           <button class="admin-btn diamond-admin ui-click" id="adminDiamondWave">DIAMOND WAVE</button>
         </div>
       </div>
       <div class="admin-section">
-        <div class="admin-label">YOURSELF — SPECIAL WAVES</div>
+        <div class="admin-label">YOURSELF � SPECIAL WAVES</div>
         <div class="admin-row">
           <button class="admin-btn rainbow-admin ui-click" id="adminRainbowWave">RAINBOW x100</button>
           <button class="admin-btn amethyst-admin ui-click" id="adminAmethystWave">AMETHYST x100</button>
         </div>
       </div>
+      <div class="admin-section admin-pets-section">
+        <div class="admin-label"> YOURSELF / ALL � PETS & LUCK</div>
+        <div class="admin-reward-hint">&#1042;&#1099;&#1076;&#1072;&#1090;&#1100; &#1087;&#1080;&#1090;&#1086;&#1084;&#1094;&#1072; &#1089;&#1077;&#1073;&#1077; &#1080;&#1083;&#1080; &#1079;&#1072;&#1087;&#1091;&#1089;&#1090;&#1080;&#1090;&#1100; x10 luck event</div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminPetType">
+            <option value="random">RANDOM PET</option>
+            <option value="cat">Cat � Common</option>
+            <option value="dog">Dog � Common</option>
+            <option value="slime">Slime � Rare</option>
+            <option value="draco">Draco � Epic</option>
+            <option value="mooncat">Moon Cat � Legendary</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminPetCount" placeholder="count" value="1" />
+        </div>
+        <div class="admin-row">
+          <button class="admin-btn ui-click" id="adminGivePetSelf">GIVE PET SELF</button>
+          <button class="admin-btn gold-admin ui-click" id="adminLuck10Self">x10 LUCK SELF</button>
+          <button class="admin-btn gold-admin ui-click" id="adminLuck10All">x10 LUCK ALL</button>
+        </div>
+      </div>
       <div class="admin-section admin-reward-all-section">
-        <div class="admin-label admin-reward-label">🎁 REWARD ALL PLAYERS</div>
-        <div class="admin-reward-hint">Отправить рыбу / кристаллы / волну ВСЕМ</div>
+        <div class="admin-label admin-reward-label"> REWARD ALL PLAYERS</div>
+        <div class="admin-reward-hint">&#1054;&#1090;&#1087;&#1088;&#1072;&#1074;&#1080;&#1090;&#1100; &#1088;&#1099;&#1073;&#1091; / &#1082;&#1088;&#1080;&#1089;&#1090;&#1072;&#1083;&#1083;&#1099; / &#1074;&#1086;&#1083;&#1085;&#1091; &#1042;&#1057;&#1045;&#1052;</div>
         <div class="admin-reward-block">
           <div class="admin-reward-sub">FISH</div>
           <div class="admin-input-row">
-            <input type="text" class="admin-input smart-num-input" id="adminRewardAllFish" placeholder="кол-во рыб (10K, 5M...)" />
+            <input type="text" class="admin-input smart-num-input" id="adminRewardAllFish" placeholder="&#1082;&#1086;&#1083;-&#1074;&#1086; &#1088;&#1099;&#1073; (10K, 5M...)" />
             <button class="admin-btn ui-click" id="adminRewardAllBtn">SEND ALL</button>
           </div>
           <div class="admin-row" style="margin-top:6px;">
@@ -298,22 +330,22 @@
         <div class="admin-reward-block">
           <div class="admin-reward-sub crystal-text">CRYSTALS</div>
           <div class="admin-input-row">
-            <input type="text" class="admin-input smart-num-input" id="adminRewardAllCrystals" placeholder="кол-во кристаллов..." />
+            <input type="text" class="admin-input smart-num-input" id="adminRewardAllCrystals" placeholder="&#1082;&#1086;&#1083;-&#1074;&#1086; &#1082;&#1088;&#1080;&#1089;&#1090;&#1072;&#1083;&#1083;&#1086;&#1074;..." />
             <button class="admin-btn crystal-admin ui-click" id="adminRewardAllCrystalsBtn">SEND ALL</button>
           </div>
         </div>
         <div class="admin-reward-block">
           <div class="admin-reward-sub">WAVES</div>
           <div class="admin-row">
-            <button class="admin-btn gold-admin ui-click" id="adminRewardAllGold">🌊 GOLD ALL</button>
-            <button class="admin-btn diamond-admin ui-click" id="adminRewardAllDiamond">💎 DIAMOND ALL</button>
+            <button class="admin-btn gold-admin ui-click" id="adminRewardAllGold"> GOLD ALL</button>
+            <button class="admin-btn diamond-admin ui-click" id="adminRewardAllDiamond"> DIAMOND ALL</button>
           </div>
         </div>
         <div class="admin-reward-block">
           <div class="admin-reward-sub rainbow-text">SPECIAL WAVES</div>
           <div class="admin-row">
-            <button class="admin-btn rainbow-admin ui-click" id="adminRewardAllRainbow">🌈 RAINBOW ALL</button>
-            <button class="admin-btn amethyst-admin ui-click" id="adminRewardAllAmethyst">💜 AMETHYST ALL</button>
+            <button class="admin-btn rainbow-admin ui-click" id="adminRewardAllRainbow"> RAINBOW ALL</button>
+            <button class="admin-btn amethyst-admin ui-click" id="adminRewardAllAmethyst"> AMETHYST ALL</button>
           </div>
         </div>
       </div>
@@ -335,6 +367,12 @@
           <button class="admin-btn danger-admin ui-click" id="adminClearTop">CLEAR TOP</button>
         </div>
         <input type="text" class="admin-input" id="adminPlayerSearch" placeholder="Search by name or UID..." style="margin-top:8px;width:100%;" />
+        <div class="admin-input-row" style="margin-top:8px;">
+          <input type="text" class="admin-input" id="adminGrantUid" placeholder="UID for admin rights..." />
+          <button class="admin-btn ui-click" id="adminGrantBtn">GRANT ADMIN</button>
+          <button class="admin-btn danger-admin ui-click" id="adminRevokeBtn">REVOKE</button>
+        </div>
+        <div class="admin-reward-hint">Dynamic admins are stored in Firebase: admins/&lt;uid&gt;</div>
       </div>
       <div id="adminPlayersList"></div>
     </div>
@@ -398,7 +436,7 @@
           const raw = inp.value.trim();
           if (!raw) { hint.textContent = ""; return; }
           const val = parseSmartInput(raw);
-          if (isNaN(val)) { hint.textContent = "❌ invalid"; hint.style.color = "#ff4444"; }
+          if (isNaN(val)) { hint.textContent = " invalid"; hint.style.color = "#ff4444"; }
           else { hint.textContent = "= " + fmtLive(val); hint.style.color = "#4ade80"; }
         });
         inp.addEventListener("blur", () => { setTimeout(() => { hint.textContent = ""; }, 300); });
@@ -428,5 +466,6 @@
 
   <script charset="UTF-8" src="game.js"></script>
   <script charset="UTF-8" src="admin.js"></script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9fee11c70bb71c01',t:'MTc3OTMwODcxNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+  <script charset="UTF-8" src="Pet.js"></script>
+</body>
 </html>

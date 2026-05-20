@@ -17,7 +17,7 @@ const PROMO_CODES = {
   }
 };
 
-/* ========== ЗВУКИ ========== */
+/* ========== \u0417\u0412\u0423\u041A\u0418 ========== */
 let audioCtx = null;
 let soundEnabled = true;
 function ensureAudio() {
@@ -118,7 +118,7 @@ const on = (id, event, handler) => {
   if (el) el.addEventListener(event, handler);
 };
 
-/* ========== УВЕДОМЛЕНИЯ ========== */
+/* ========== \u0423\u0412\u0415\u0414\u041E\u041C\u041B\u0415\u041D\u0418\u042F ========== */
 function showNotification(text, color = "#4ade80", duration = 3000) {
   const notif = document.createElement("div");
   notif.className = "game-notification";
@@ -151,7 +151,7 @@ function showNotification(text, color = "#4ade80", duration = 3000) {
   document.head.appendChild(style);
 })();
 
-/* ========== КОСМОС ========== */
+/* ========== \u041A\u041E\u0421\u041C\u041E\u0421 ========== */
 const spaceCanvas = $("space");
 const spaceCtx = spaceCanvas.getContext("2d");
 let sw, sh, particles = [];
@@ -187,7 +187,7 @@ window.addEventListener("resize", resizeSpace);
 resizeSpace();
 drawParticles();
 
-/* ========== ФОР МАТИР ОВАНИЕ ========== */
+/* ========== \u0424\u041E\u0420 \u041C\u0410\u0422\u0418\u0420 \u041E\u0412\u0410\u041D\u0418\u0415 ========== */
 function formatNum(n) {
   if (n < 0) return "-" + formatNum(-n);
   if (n >= 1e15) return (n / 1e15).toFixed(1) + "Qa";
@@ -220,7 +220,7 @@ function formatDuration(ms) {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-/* ========== ДАННЫЕ ========== */
+/* ========== \u0414\u0410\u041D\u041D\u042B\u0415 ========== */
 let score = 0;
 let crystals = 0;
 let clickPower = 1;
@@ -243,12 +243,17 @@ let settings = { glowEnabled: true, soundEnabled: true };
 let currentUser = null;
 let recoveryCode = null;
 let lastPushedFish = -1;
+let lastLeaderboardSignature = "";
 let isAdmin = false;
+let remoteAdminUids = [];
+let adminGrantsListening = false;
+let localAdminGranted = false;
 let usedPromoCodes = [];
 let pendingOfflineFish = 0;
 let rebirthCount = 0;
 let rebirthMultiplier = 1;
 let potions = { luck: 0, speed: 0, fish: 0 };
+let vipActive = false;
 let currentShopTab = "click";
 let lastClickTime = 0;
 const CLICK_DELAY = 50;
@@ -256,6 +261,14 @@ const SAVE_KEY = "catclicker_save";
 const OFFLINE_MIN_SECONDS = 30;
 const OFFLINE_MAX_SECONDS = 8 * 3600;
 const OFFLINE_EFFICIENCY = 0.1;
+const SAVE_FILE_TYPE = "catclicker-save";
+const SAVE_FILE_VERSION = 2;
+const SAVE_FILE_ENCODING = "base64-json";
+const SAVE_FILE_HASH_VERSION = "cc-hash-v1";
+const SAVE_FILE_INTEGRITY_KEY = ["cat", "clicker", "arena", "save", "v2", "pets", "vip"].join(":");
+const ALLOW_UNSIGNED_SAVE_IMPORT = false;
+const AUTO_BACKUP_STORAGE_KEY = "catclicker_auto_backups";
+const AUTO_BACKUP_LIMIT = 3;
 let lastHiddenAt = null;
 let lastResumeHandledAt = 0;
 
@@ -274,8 +287,9 @@ const diamondTimer = $("diamondTimer");
 const incomeClick = $("incomeClick");
 const incomeSec = $("incomeSec");
 const crystalBar = $("crystalBar");
+const potionStatusBar = $("potionStatusBar");
 
-/* ========== МАГАЗИН Р ЫБЫ ========== */
+/* ========== \u041C\u0410\u0413\u0410\u0417\u0418\u041D \u0420 \u042B\u0411\u042B ========== */
 const shopItemsData = [
   { name: "Double Fish", desc: "+1 fish per click", basePrice: 10, owned: 0, category: "click", apply: () => clickPower += 1 },
   { name: "Lucky Paw", desc: "+5 fish per click", basePrice: 200, owned: 0, category: "click", apply: () => clickPower += 5 },
@@ -312,11 +326,40 @@ function getFishPotionMult() {
 function getSpeedPotionMult() {
   return Date.now() < potions.speed ? 2 : 1;
 }
+function getPetApi() {
+  return window.petSystemApi || null;
+}
+function getPetFishMult() {
+  return getPetApi()?.getFishMultiplier?.() || 1;
+}
+function getPetAutoSpeedMult() {
+  return getPetApi()?.getAutoSpeedMultiplier?.() || 1;
+}
+function getLuckPotionMult() {
+  return Date.now() < potions.luck ? 2 : 1;
+}
+function getPetLuckMult() {
+  return (getPetApi()?.getLuckMultiplier?.() || 1) * getLuckPotionMult();
+}
+function getPetPassiveCrystalsPerMinute() {
+  return getPetApi()?.getPassiveCrystalsPerMinute?.() || 0;
+}
+function getVipFishMult() {
+  return vipActive ? 10 : 1;
+}
+function grantVipPetIfPossible() {
+  try {
+    if (vipActive && getPetApi()?.grantVipPet) getPetApi().grantVipPet();
+  } catch (e) { console.warn("VIP pet grant failed", e); }
+}
+function getEggsOpenedCount() {
+  return getPetApi()?.getEggsOpened?.() || 0;
+}
 function getClickIncome() {
-  return clickPower * waveMultiplier * rebirthMultiplier * getFishPotionMult();
+  return clickPower * waveMultiplier * rebirthMultiplier * getFishPotionMult() * getVipFishMult() * getPetFishMult();
 }
 function getAutoIncome() {
-  return autoClicker * waveMultiplier * rebirthMultiplier * getFishPotionMult() * getSpeedPotionMult();
+  return autoClicker * waveMultiplier * rebirthMultiplier * getFishPotionMult() * getVipFishMult() * getSpeedPotionMult() * getPetFishMult() * getPetAutoSpeedMult();
 }
 
 function doRebirth() {
@@ -340,17 +383,50 @@ function doRebirth() {
   showNotification("✨ REBIRTH #"+rebirthCount+"!\n+10 Crystals!\nx"+rebirthMultiplier.toFixed(2)+" fish boost!", "#a855f7", 4000);
 }
 
-/* ========== ЗЕЛЬЯ ========== */
+/* ========== \u0417\u0415\u041B\u042C\u042F ========== */
 const potionItemsData = [
   { name: "Luck Potion", desc: "+Luck for 10 min", icon: "LuckPotion.png", price: 3, type: "luck", duration: 10 * 60 * 1000 },
   { name: "Speed Potion", desc: "x2 auto speed 5 min", icon: "SpeedPotion.png", price: 2, type: "speed", duration: 5 * 60 * 1000 },
   { name: "Fish Potion", desc: "x5 fish 30 min", icon: "FishPotion.png", price: 5, type: "fish", duration: 30 * 60 * 1000 }
 ];
 
+const VIP_PRICE = 1000;
+function buyVipMembership() {
+  if (vipActive) return;
+  if (crystals < VIP_PRICE) {
+    showNotification("Need 1000 amethysts for VIP!", "#ff6666", 2500);
+    return;
+  }
+  crystals -= VIP_PRICE;
+  vipActive = true;
+  grantVipPetIfPossible();
+  playRewardSound();
+  updateScore();
+  updateIncome();
+  saveGame();
+  if (currentUser) pushToLeaderboard();
+  showNotification("⭐ VIP ACTIVATED!\nx10 fish forever\n+ unique Gold Pegasus!", "#ffd700", 4500);
+}
+
 function renderPotionShop() {
   const el = $("potionItems");
   if (!el) return;
   el.innerHTML = "";
+  const vipCanBuy = crystals >= VIP_PRICE && !vipActive;
+  const vipDiv = document.createElement("div");
+  vipDiv.className = "potion-item vip-item" + (vipActive ? " active-potion" : "") + (vipCanBuy ? "" : " locked");
+  vipDiv.innerHTML = `
+    <div class="potion-icon"><img src="GoldPegasus.png" alt="VIP" /></div>
+    <div class="potion-info">
+      <div class="potion-name">⭐ VIP</div>
+      <div class="potion-desc">Permanent x10 fish • unique Gold Pegasus • [VIP] top prefix</div>
+      <div class="potion-timer">${vipActive ? "ACTIVE FOREVER" : "Gold Pegasus: x5 fish, +200% luck, x1.5 auto, +5 amethyst/min"}</div>
+    </div>
+    <div class="potion-price"><img src="CrystalIcon.png" alt="" />${vipActive ? "OWNED" : VIP_PRICE}</div>
+  `;
+  if (vipCanBuy) vipDiv.addEventListener("click", buyVipMembership);
+  el.appendChild(vipDiv);
+
   for (const potion of potionItemsData) {
     const active = Date.now() < potions[potion.type];
     const timeLeft = active ? potions[potion.type] - Date.now() : 0;
@@ -379,6 +455,32 @@ function renderPotionShop() {
     }
     el.appendChild(div);
   }
+}
+
+function getActivePotionEntries() {
+  return potionItemsData
+    .map((potion) => ({ ...potion, timeLeft: Math.max(0, (potions[potion.type] || 0) - Date.now()) }))
+    .filter((potion) => potion.timeLeft > 0);
+}
+function updatePotionStatusBar() {
+  if (!potionStatusBar) return;
+  const activePotions = getActivePotionEntries();
+  if (!activePotions.length) {
+    potionStatusBar.innerHTML = "";
+    return;
+  }
+  potionStatusBar.innerHTML = activePotions.map((potion) => {
+    const timeText = `ends in ${formatDuration(potion.timeLeft)}`;
+    return `
+      <div class="potion-status-chip" data-time="${timeText}">
+        <img src="${potion.icon}" alt="${potion.name}" />
+        <div>
+          <div class="potion-status-name">${potion.name}</div>
+          <div class="potion-status-time">${timeText}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 /* ========== OFFLINE ========== */
@@ -411,6 +513,7 @@ if (offlineCollectBtn) {
 }
 function getOfflineMultiplier(data, now = Date.now()) {
   return (data.rebirthMultiplier || 1)
+    * (data.vipActive ? 10 : 1)
     * ((now < (data.potions?.fish || 0)) ? 5 : 1)
     * ((now < (data.potions?.speed || 0)) ? 2 : 1);
 }
@@ -434,9 +537,9 @@ function processOfflineProgress(data) {
 function buildSaveData(lastOnlineOverride = Date.now()) {
   return {
     score, crystals, clickPower, autoClicker, goldClicks, diamondClicks,
-    rebirthCount, rebirthMultiplier, potions,
+    rebirthCount, rebirthMultiplier, potions, vipActive,
     shopOwned: shopItemsData.map(i => i.owned),
-    stats, profile, settings, recoveryCode, usedPromoCodes,
+    stats, profile, settings, recoveryCode, usedPromoCodes, localAdminGranted,
     lastOnline: lastOnlineOverride
   };
 }
@@ -468,6 +571,7 @@ function applySaveData(data) {
   if (data.rebirthCount !== undefined) rebirthCount = data.rebirthCount;
   if (data.rebirthMultiplier !== undefined) rebirthMultiplier = data.rebirthMultiplier;
   if (data.potions) potions = data.potions;
+  vipActive = !!data.vipActive;
   if (data.shopOwned) {
     data.shopOwned.forEach((count, i) => {
       if (shopItemsData[i]) shopItemsData[i].owned = count;
@@ -478,6 +582,7 @@ function applySaveData(data) {
   if (data.settings) settings = { ...settings, ...data.settings };
   if (data.recoveryCode !== undefined) recoveryCode = data.recoveryCode;
   if (data.usedPromoCodes) usedPromoCodes = data.usedPromoCodes;
+  localAdminGranted = !!data.localAdminGranted;
   soundEnabled = settings.soundEnabled !== false;
   updateScore();
   updateIncome();
@@ -485,9 +590,19 @@ function applySaveData(data) {
   applyProfile();
   applySettings();
   updateRecoveryDisplay();
+  updatePotionStatusBar();
+  grantVipPetIfPossible();
 }
 function saveGame(lastOnlineOverride = Date.now()) {
   persistSaveData(buildSaveData(lastOnlineOverride));
+}
+function writeAutoBackupSnapshot() {
+  try {
+    const payload = createSaveFilePayload();
+    const backups = JSON.parse(localStorage.getItem(AUTO_BACKUP_STORAGE_KEY) || "[]");
+    backups.unshift({ timestamp: Date.now(), payload });
+    localStorage.setItem(AUTO_BACKUP_STORAGE_KEY, JSON.stringify(backups.slice(0, AUTO_BACKUP_LIMIT)));
+  } catch (e) { console.warn("Auto backup failed", e); }
 }
 function loadGame() {
   const data = readLocalSave();
@@ -509,12 +624,38 @@ function resumeFromBackground() {
   saveGame(now);
   lastHiddenAt = null;
 }
+function getLeaderboardSignature() {
+  return [
+    stats.totalFishEarned,
+    stats.totalClicks,
+    stats.playTimeSec,
+    rebirthCount,
+    crystals,
+    getEggsOpenedCount(),
+    vipActive ? 1 : 0,
+    profile.name || "",
+    profile.avatar ? 1 : 0
+  ].join("|");
+}
 setInterval(() => saveGame(), 5000);
 setInterval(() => { stats.playTimeSec++; }, 1000);
 setInterval(() => {
-  if (currentUser && stats.totalFishEarned !== lastPushedFish) {
+  updatePotionStatusBar();
+  if (potionMenu && potionMenu.classList.contains("active")) renderPotionShop();
+}, 1000);
+setInterval(() => {
+  const passiveCrystals = getPetPassiveCrystalsPerMinute();
+  if (passiveCrystals > 0) {
+    crystals += passiveCrystals;
+    updateScore();
+    saveGame();
+  }
+  writeAutoBackupSnapshot();
+}, 60000);
+setInterval(() => {
+  const signature = getLeaderboardSignature();
+  if (currentUser && signature !== lastLeaderboardSignature) {
     pushToLeaderboard();
-    lastPushedFish = stats.totalFishEarned;
   }
 }, 10000);
 
@@ -525,7 +666,7 @@ function updateIncome() {
   incomeSec.textContent = `+${formatNum(getAutoIncome())}/sec`;
 }
 
-/* ========== КЛИК ========== */
+/* ========== \u041A\u041B\u0418\u041A ========== */
 if (catBtn) {
   catBtn.addEventListener("click", () => {
     const now = Date.now();
@@ -550,10 +691,11 @@ function updateScore() {
   if (scoreText) scoreText.textContent = formatNum(score);
   if (crystalText) crystalText.textContent = formatNum(crystals);
   updateIncome();
+  updatePotionStatusBar();
   renderShop();
 }
 
-/* ========== ВОЛНЫ ========== */
+/* ========== \u0412\u041E\u041B\u041D\u042B ========== */
 function updateWaveBars() {
   if (goldFill) goldFill.style.width = Math.min((goldClicks / GOLD_REQUIRED) * 100, 100) + "%";
   if (diamondFill) diamondFill.style.width = Math.min((diamondClicks / DIAMOND_REQUIRED) * 100, 100) + "%";
@@ -634,7 +776,7 @@ setInterval(() => {
   }
 }, 1000);
 
-/* ========== Р ЫБКА ========== */
+/* ========== \u0420 \u042B\u0411\u041A\u0410 ========== */
 function spawnFlyingFish() {
   if (activeFish >= MAX_FISH || !catBtn || !scoreBar) return;
   activeFish++;
@@ -676,7 +818,7 @@ function spawnFlyingFish() {
   requestAnimationFrame(animateFish);
 }
 
-/* ========== РљР ИСТАЛЛЫ ========== */
+/* ========== \u0420\u0459\u0420 \u0418\u0421\u0422\u0410\u041B\u041B\u042B ========== */
 function spawnFlyingCrystal() {
   if (!catBtn || !crystalBar) return;
   const crystal = document.createElement("img");
@@ -713,7 +855,7 @@ function spawnFlyingCrystal() {
   requestAnimationFrame(anim);
 }
 
-/* ========== МЕНЮ ========== */
+/* ========== \u041C\u0415\u041D\u042E ========== */
 const overlay = $("overlay");
 const shopMenu = $("shopMenu");
 const potionMenu = $("potionMenu");
@@ -748,7 +890,7 @@ document.querySelectorAll("[data-close]").forEach(btn => {
 });
 if (overlay) overlay.addEventListener("click", closeAllMenus);
 
-/* ========== МАГАЗИН ========== */
+/* ========== \u041C\u0410\u0413\u0410\u0417\u0418\u041D ========== */
 const shopItemsEl = $("shopItems");
 function renderShop() {
   if (!shopItemsEl) return;
@@ -811,7 +953,7 @@ document.querySelectorAll(".shop-tab").forEach(tab => {
   tab.addEventListener("click", () => { currentShopTab = tab.dataset.shopTab; renderShop(); });
 });
 
-/* ========== РќРђРЎРўР ОЙКИ ========== */
+/* ========== \u0420\u045C\u0420\u0452\u0420\u040E\u0420\u045E\u0420 \u041E\u0419\u041A\u0418 ========== */
 const glowToggle = $("glowToggle");
 const soundToggle = $("soundToggle");
 on("glowToggle", "click", () => {
@@ -844,7 +986,7 @@ on("resetBtn", "click", async () => {
   location.reload();
 });
 
-/* ========== РџР ОМОКОДЫ ========== */
+/* ========== \u0420\u045F\u0420 \u041E\u041C\u041E\u041A\u041E\u0414\u042B ========== */
 function activatePromoCode(rawCode) {
   if (!rawCode) return;
   const code = rawCode.trim().toUpperCase();
@@ -868,14 +1010,50 @@ on("promoBtn", "click", () => {
   if (inp) activatePromoCode(inp.value);
 });
 
-/* ========== СЕКР ЕТНЫЙ ВХОД ========== */
+function isUidAdmin(uid) {
+  return !!uid && (ADMIN_UIDS.includes(uid) || remoteAdminUids.includes(uid));
+}
+
+function canUseAdmin(uid = currentUser && currentUser.uid) {
+  return !!uid && (isUidAdmin(uid) || localAdminGranted);
+}
+
+function normalizeAdminList(raw) {
+  if (!raw || typeof raw !== "object") return [];
+  return Object.entries(raw)
+    .filter(([uid, val]) => {
+      if (!uid) return false;
+      if (val === true) return true;
+      if (val && typeof val === "object") return val.active !== false;
+      return false;
+    })
+    .map(([uid]) => uid);
+}
+
+function listenForAdminGrants() {
+  if (!window.fb || adminGrantsListening) return;
+  adminGrantsListening = true;
+  try {
+    const fb = window.fb;
+    fb.onValue(fb.ref(fb.db, "admins"), (snap) => {
+      remoteAdminUids = normalizeAdminList(snap.val());
+      if (currentUser && !canUseAdmin(currentUser.uid)) {
+        isAdmin = false;
+        if (adminMenu && adminMenu.classList.contains("active")) closeAllMenus();
+      }
+      window.dispatchEvent(new Event("admin-rights-updated"));
+    });
+  } catch (e) { adminGrantsListening = false; console.warn("Admin grants listen failed", e); }
+}
+
+/* ========== \u0421\u0415\u041A\u0420 \u0415\u0422\u041D\u042B\u0419 \u0412\u0425\u041E\u0414 ========== */
 let settingsTapCount = 0;
 let settingsTapTimer = null;
 if (settingsMenu) {
   const settingsTitle = settingsMenu.querySelector(".menu-title");
   if (settingsTitle) {
     settingsTitle.addEventListener("click", () => {
-      if (!currentUser || !ADMIN_UIDS.includes(currentUser.uid)) return;
+      if (!currentUser || !canUseAdmin(currentUser.uid)) return;
       settingsTapCount++;
       clearTimeout(settingsTapTimer);
       settingsTapTimer = setTimeout(() => { settingsTapCount = 0; }, 3000);
@@ -884,10 +1062,10 @@ if (settingsMenu) {
   }
 }
 function checkAdmin() {
-  return isAdmin && currentUser && ADMIN_UIDS.includes(currentUser.uid);
+  return isAdmin && currentUser && canUseAdmin(currentUser.uid);
 }
 
-/* ========== РџР ОФИЛЬ ========== */
+/* ========== \u0420\u045F\u0420 \u041E\u0424\u0418\u041B\u042C ========== */
 const avatarImg = $("avatarImg");
 const avatarInput = $("avatarInput");
 const nameInput = $("nameInput");
@@ -921,9 +1099,24 @@ function renderStats() {
   set("statGoldWaves", stats.goldWaves);
   set("statDiamondWaves", stats.diamondWaves);
   set("statItems", stats.itemsBought);
+  /* ---- Pet Stats (Option C) ---- */
+  const petStats = window.petSystemApi ? window.petSystemApi.getPetStats() : null;
+  if (petStats) {
+    set("statPetFishMult", "x" + petStats.fishMult.toFixed(2));
+    set("statPetAutoMult", "x" + petStats.autoMult.toFixed(2));
+    set("statPetLuckMult", "x" + petStats.luckMult.toFixed(2));
+    set("statPetCrystals", "+" + petStats.crystalsPerMin + "/min");
+    set("statEquippedPets", petStats.equippedCount + " / 3");
+  } else {
+    set("statPetFishMult", "x1.00");
+    set("statPetAutoMult", "x1.00");
+    set("statPetLuckMult", "x1.00");
+    set("statPetCrystals", "+0/min");
+    set("statEquippedPets", "0 / 3");
+  }
 }
 
-/* ========== ТОП ========== */
+/* ========== \u0422\u041E\u041F ========== */
 let currentTopTab = "fish";
 let cachedLeaderboard = [];
 document.querySelectorAll(".top-tab").forEach(tab => {
@@ -967,11 +1160,16 @@ function renderTop(list) {
     let value;
     if (currentTopTab === "fish") value = formatNum(player.fish || 0);
     else if (currentTopTab === "clicks") value = formatNum(player.clicks || 0);
-    else value = formatTime(player.time || 0);
+    else if (currentTopTab === "time") value = formatTime(player.time || 0);
+    else if (currentTopTab === "rebirths") value = formatNum(player.rebirths || 0);
+    else if (currentTopTab === "amethysts") value = formatNum(player.amethysts || 0);
+    else if (currentTopTab === "eggs") value = formatNum(player.eggs || 0);
+    else value = formatNum(player.fish || 0);
+    const displayName = `${player.vip ? "[\u0412\u0438\u043F] " : ""}${player.name || 'Anonymous'}`;
     el.innerHTML = `
       <div class="top-rank ${rankClass}">#${rank}</div>
       <div class="top-avatar"><img src="${player.avatar || 'CatIcon1.png'}" alt="" onerror="this.src='CatIcon1.png'" /></div>
-      <div class="top-name">${escapeHtml(player.name || 'Anonymous')}</div>
+      <div class="top-name">${escapeHtml(displayName)}</div>
       <div class="top-value">${value}</div>
     `;
     topList.appendChild(el);
@@ -986,13 +1184,343 @@ async function pushToLeaderboard() {
   if (!currentUser || !window.fb) return;
   try {
     await window.fb.set(window.fb.ref(window.fb.db, `leaderboard/${currentUser.uid}`), {
-      uid: currentUser.uid, name: profile.name || "Anonymous", avatar: profile.avatar || null,
-      fish: stats.totalFishEarned, clicks: stats.totalClicks, time: stats.playTimeSec, updated: Date.now()
+      uid: currentUser.uid,
+      name: profile.name || "Anonymous",
+      avatar: profile.avatar || null,
+      vip: vipActive,
+      fish: stats.totalFishEarned,
+      clicks: stats.totalClicks,
+      time: stats.playTimeSec,
+      rebirths: rebirthCount,
+      amethysts: crystals,
+      eggs: getEggsOpenedCount(),
+      updated: Date.now()
     });
+    lastPushedFish = stats.totalFishEarned;
+    lastLeaderboardSignature = getLeaderboardSignature();
   } catch (e) { console.warn("Leaderboard push failed", e); }
 }
 
-/* ========== ВОССТАНОВЛЕНИЕ ========== */
+/* ========== SAVE FILE ========== */
+function stableStringify(value) {
+  if (value === undefined || typeof value === "function" || typeof value === "symbol") return "null";
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]";
+  return "{" + Object.keys(value).sort().filter((key) => value[key] !== undefined && typeof value[key] !== "function" && typeof value[key] !== "symbol").map((key) => JSON.stringify(key) + ":" + stableStringify(value[key])).join(",") + "}";
+}
+
+function base64EncodeUnicode(str) {
+  try {
+    const bytes = new TextEncoder().encode(str);
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  } catch (e) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+}
+
+function base64DecodeUnicode(b64) {
+  const clean = String(b64 || "").replace(/\s+/g, "");
+  try {
+    const binary = atob(clean);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  } catch (e) {
+    return decodeURIComponent(escape(atob(clean)));
+  }
+}
+
+function hashString64(str) {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 ^= ch;
+    h1 = Math.imul(h1, 0x01000193);
+    h2 ^= ch + i;
+    h2 = Math.imul(h2, 0x85ebca6b);
+    h2 ^= h2 >>> 13;
+  }
+  return ((h1 >>> 0).toString(16).padStart(8, "0") + (h2 >>> 0).toString(16).padStart(8, "0")).toUpperCase();
+}
+
+function makeSaveIntegrityHash(payloadB64, exportedAt, version) {
+  return hashString64([
+    SAVE_FILE_HASH_VERSION,
+    SAVE_FILE_TYPE,
+    String(version),
+    exportedAt,
+    payloadB64,
+    SAVE_FILE_INTEGRITY_KEY
+  ].join("|"));
+}
+
+function createSaveFilePayload() {
+  const data = buildSaveData();
+  const exportedAt = new Date().toISOString();
+  const version = SAVE_FILE_VERSION;
+  const payload = base64EncodeUnicode(stableStringify(data));
+  const hash = makeSaveIntegrityHash(payload, exportedAt, version);
+  return {
+    type: SAVE_FILE_TYPE,
+    version,
+    encoding: SAVE_FILE_ENCODING,
+    hashVersion: SAVE_FILE_HASH_VERSION,
+    exportedAt,
+    payload,
+    hash
+  };
+}
+
+function decodeProtectedSave(raw) {
+  if (!raw || raw.type !== SAVE_FILE_TYPE || raw.version !== SAVE_FILE_VERSION || raw.encoding !== SAVE_FILE_ENCODING) return null;
+  if (!raw.payload || !raw.hash || !raw.exportedAt) return null;
+  const expectedHash = makeSaveIntegrityHash(raw.payload, raw.exportedAt, raw.version);
+  if (String(raw.hash).toUpperCase() !== expectedHash) {
+    alert("Save file integrity check failed! File was edited or corrupted.");
+    return null;
+  }
+  try {
+    const decoded = base64DecodeUnicode(raw.payload);
+    return JSON.parse(decoded);
+  } catch (e) {
+    alert("Save file decode failed: " + e.message);
+    return null;
+  }
+}
+
+function sanitizeImportedSaveData(data, trustedProtected) {
+  if (!data || typeof data !== "object") return null;
+  const clean = JSON.parse(JSON.stringify(data));
+
+  // Admin rights must come from Firebase admins/commands, not from edited save files.
+  delete clean.isAdmin;
+  delete clean.remoteAdminUids;
+  delete clean.currentUser;
+  if (!trustedProtected) delete clean.localAdminGranted;
+
+  const clampFinite = (obj, key, min, max, def) => {
+    const n = Number(obj[key]);
+    obj[key] = Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def;
+  };
+  const MAX_VALUE = 1e18;
+  clampFinite(clean, "score", 0, MAX_VALUE, 0);
+  clampFinite(clean, "crystals", 0, MAX_VALUE, 0);
+  clampFinite(clean, "clickPower", 1, MAX_VALUE, 1);
+  clampFinite(clean, "autoClicker", 0, MAX_VALUE, 0);
+  clampFinite(clean, "rebirthCount", 0, 1000000, 0);
+  clampFinite(clean, "rebirthMultiplier", 1, MAX_VALUE, 1);
+  if (clean.stats && typeof clean.stats === "object") {
+    ["totalClicks", "totalFishEarned", "playTimeSec", "goldWaves", "diamondWaves", "itemsBought"].forEach((key) => clampFinite(clean.stats, key, 0, MAX_VALUE, 0));
+  }
+  return clean;
+}
+
+function normalizeImportedSave(raw) {
+  if (!raw || typeof raw !== "object") return null;
+
+  const protectedData = decodeProtectedSave(raw);
+  if (protectedData) return sanitizeImportedSaveData(protectedData, true);
+
+  if (raw.type === SAVE_FILE_TYPE && raw.data && typeof raw.data === "object") {
+    if (!ALLOW_UNSIGNED_SAVE_IMPORT) {
+      alert("This is an old unsigned save file. Export a new protected save first. Import blocked to prevent edited saves.");
+      return null;
+    }
+    return sanitizeImportedSaveData(raw.data, false);
+  }
+
+  if ("score" in raw || "stats" in raw || "shopOwned" in raw) {
+    if (!ALLOW_UNSIGNED_SAVE_IMPORT) {
+      alert("Unsigned raw save import is blocked to prevent edited saves.");
+      return null;
+    }
+    return sanitizeImportedSaveData(raw, false);
+  }
+
+  return null;
+}
+function makeSaveFileName() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `catclicker-save-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.json`;
+}
+
+function triggerSaveDownload(text, fileName) {
+  try {
+    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2500);
+    return true;
+  } catch (e) {
+    console.warn("Blob download failed", e);
+  }
+
+  try {
+    const a = document.createElement("a");
+    a.href = "data:application/json;charset=utf-8," + encodeURIComponent(text);
+    a.download = fileName;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+    a.remove();
+    return true;
+  } catch (e) {
+    console.warn("Data-url download failed", e);
+    return false;
+  }
+}
+
+function showExportFallbackDialog(text, fileName) {
+  const old = document.getElementById("saveExportFallback");
+  if (old) old.remove();
+
+  const wrap = document.createElement("div");
+  wrap.id = "saveExportFallback";
+  wrap.style.cssText = `
+    position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.78);
+    display:flex;align-items:center;justify-content:center;padding:14px;
+    font-family:'Press Start 2P',system-ui,sans-serif;
+  `;
+  wrap.innerHTML = `
+    <div style="width:min(720px,96vw);max-height:88vh;background:#1a1a2e;border:4px solid #4ade80;box-shadow:8px 8px 0 #000;padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <div style="color:#4ade80;font-size:12px;line-height:1.5;">SAVE EXPORT READY</div>
+      <div style="color:#aaa;font-size:7px;line-height:1.6;">
+        If QuickEdit / Android WebView does not download files, copy this JSON and save it as:<br/>
+        <span style="color:#ffd700;word-break:break-all;">${escapeHtml(fileName)}</span>
+      </div>
+      <textarea id="saveExportText" readonly style="width:100%;height:42vh;min-height:180px;background:#0f1020;color:#fff;border:2px solid #3a3a5a;padding:10px;font-family:monospace;font-size:11px;line-height:1.35;resize:vertical;outline:none;">${escapeHtml(text)}</textarea>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+        <button id="saveExportDownloadAgain" class="ui-click" style="padding:12px 8px;background:#1a1a2e;border:2px solid #ffd700;color:#ffd700;font-family:inherit;font-size:8px;cursor:pointer;">DOWNLOAD</button>
+        <button id="saveExportCopy" class="ui-click" style="padding:12px 8px;background:#1a1a2e;border:2px solid #4ade80;color:#4ade80;font-family:inherit;font-size:8px;cursor:pointer;">COPY</button>
+        <button id="saveExportClose" class="ui-click" style="padding:12px 8px;background:#1a1a2e;border:2px solid #ff6666;color:#ff6666;font-family:inherit;font-size:8px;cursor:pointer;">CLOSE</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(wrap);
+
+  const ta = wrap.querySelector("#saveExportText");
+  const copyBtn = wrap.querySelector("#saveExportCopy");
+  wrap.querySelector("#saveExportClose").addEventListener("click", () => wrap.remove());
+  wrap.querySelector("#saveExportDownloadAgain").addEventListener("click", () => {
+    triggerSaveDownload(text, fileName);
+    showNotification("Download started. If not, use COPY.", "#ffd700", 2500);
+  });
+  copyBtn.addEventListener("click", async () => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(text);
+      else {
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+      }
+      copyBtn.textContent = "COPIED!";
+      setTimeout(() => { copyBtn.textContent = "COPY"; }, 1500);
+      showNotification("Save copied!", "#4ade80", 2200);
+    } catch (e) {
+      ta.focus();
+      ta.select();
+      alert("Copy failed. Select all text and copy manually.");
+    }
+  });
+  setTimeout(() => { ta.focus(); ta.select(); }, 80);
+}
+
+function isDownloadHostileEnvironment() {
+  const ua = navigator.userAgent || "";
+  return location.protocol === "file:" || /Android|; wv\)|Version\/\d+\.\d+.*Chrome\/.*Mobile/i.test(ua) || /QuickEdit/i.test(ua);
+}
+
+async function exportSaveToFile() {
+  const payload = createSaveFilePayload();
+  const text = JSON.stringify(payload, null, 2);
+  const fileName = makeSaveFileName();
+
+  // QuickEdit / Android WebView often breaks browser download/share APIs with
+  // vague errors like "l is not defined". In that environment, use the safe
+  // copy/manual-save dialog immediately.
+  if (isDownloadHostileEnvironment()) {
+    showExportFallbackDialog(text, fileName);
+    return;
+  }
+
+  try {
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{ description: "Cat Clicker Save", accept: { "application/json": [".json"] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      showNotification("✓ Save exported!", "#4ade80", 2500);
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === "AbortError") return;
+    console.warn("File picker export failed", e);
+  }
+
+  try {
+    if (navigator.share && navigator.canShare && window.File) {
+      const file = new File([text], fileName, { type: "application/json" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Cat Clicker save", text: "Cat Clicker save file" });
+        showNotification("✓ Save shared!", "#4ade80", 2500);
+        return;
+      }
+    }
+  } catch (e) {
+    if (e && e.name === "AbortError") return;
+    console.warn("Share export failed", e);
+  }
+
+  const attempted = triggerSaveDownload(text, fileName);
+  if (isDownloadHostileEnvironment() || !attempted) {
+    showExportFallbackDialog(text, fileName);
+  } else {
+    showNotification("✓ Save exported!", "#4ade80", 2500);
+  }
+}
+async function importSaveFromFile(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const data = normalizeImportedSave(parsed);
+    if (!data) { alert("Invalid save file!"); return; }
+    if (!confirm("Import save file? This will replace your current progress.")) return;
+    const currentCodeBeforeImport = recoveryCode;
+    applySaveData(data);
+    if (currentCodeBeforeImport) recoveryCode = currentCodeBeforeImport;
+    updateRecoveryDisplay();
+    saveGame();
+    if (currentUser) {
+      pushToLeaderboard();
+      lastPushedFish = stats.totalFishEarned;
+      if (!recoveryCode) ensureRecoveryCode();
+    }
+    showNotification("✓ Save imported!", "#4ade80", 3000);
+  } catch (e) {
+    alert("Import failed: " + e.message);
+  }
+}
+
+/* ========== \u0412\u041E\u0421\u0421\u0422\u0410\u041D\u041E\u0412\u041B\u0415\u041D\u0418\u0415 ========== */
 function generateRecoveryCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -1078,9 +1606,20 @@ function initAuth() {
     const inp = $("restoreInput");
     if (inp) restoreFromCode(inp.value);
   });
+  on("exportSaveBtn", "click", exportSaveToFile);
+  on("importSaveBtn", "click", () => {
+    const inp = $("importSaveInput");
+    if (inp) inp.click();
+  });
+  on("importSaveInput", "change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) await importSaveFromFile(file);
+    e.target.value = "";
+  });
   fb.onAuthStateChanged(fb.auth, async (user) => {
     currentUser = user;
     if (user) {
+      listenForAdminGrants();
       try {
         const snap = await fb.get(fb.ref(fb.db, `users/${user.uid}`));
         const cloudData = snap.val();
@@ -1117,6 +1656,7 @@ else window.addEventListener("firebase-ready", initAuth);
 /* ========== START ========== */
 loadGame();
 updateIncome();
+updatePotionStatusBar();
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) saveOnBackground();
@@ -1145,13 +1685,16 @@ window.gameState = {
   get shopItemsData() { return shopItemsData; },
   get currentUser() { return currentUser; },
   get isAdmin() { return isAdmin; }, set isAdmin(v) { isAdmin = v; },
+  get remoteAdminUids() { return remoteAdminUids; },
+  get localAdminGranted() { return localAdminGranted; }, set localAdminGranted(v) { localAdminGranted = !!v; },
   get recoveryCode() { return recoveryCode; }, set recoveryCode(v) { recoveryCode = v; updateRecoveryDisplay(); },
   get usedPromoCodes() { return usedPromoCodes; },
   get soundEnabled() { return soundEnabled; }, set soundEnabled(v) { soundEnabled = v; },
   get lastPushedFish() { return lastPushedFish; }, set lastPushedFish(v) { lastPushedFish = v; },
   get rebirthCount() { return rebirthCount; }, set rebirthCount(v) { rebirthCount = v; },
   get rebirthMultiplier() { return rebirthMultiplier; }, set rebirthMultiplier(v) { rebirthMultiplier = v; },
-  get potions() { return potions; }, set potions(v) { potions = v; }
+  get potions() { return potions; }, set potions(v) { potions = v; },
+  get vipActive() { return vipActive; }, set vipActive(v) { vipActive = !!v; updateIncome(); }
 };
 window.gameFns = {
   formatNum, parseNumInput, formatTime, formatDuration, escapeHtml,
@@ -1160,6 +1703,6 @@ window.gameFns = {
   startWave, endWave, queueWavesSequentially,
   playRewardSound, playWaveSound, playBuySound, showNotification,
   openMenu, closeAllMenus, renderShop, renderPotionShop, renderStats, loadTop, renderTop, pushToLeaderboard,
-  checkAdmin, spawnFlyingFish, spawnFlyingCrystal,
-  getRebirthCost, doRebirth, getClickIncome, getAutoIncome
+  checkAdmin, isUidAdmin, canUseAdmin, spawnFlyingFish, spawnFlyingCrystal,
+  getRebirthCost, doRebirth, getClickIncome, getAutoIncome, getPetLuckMult, updatePotionStatusBar, grantVipPetIfPossible
 };

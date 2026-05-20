@@ -19,54 +19,168 @@ function initAdmin() {
 
   const S = window.gameState;
   const F = window.gameFns;
+  const ADMIN_LUCK_DURATION_MS = 10 * 60 * 1000;
+
+  function isRuLocale() {
+    const lang = (navigator.language || navigator.userLanguage || "en").toLowerCase();
+    return lang.startsWith("ru") || lang.startsWith("be") || lang.startsWith("uk") || lang.startsWith("kk");
+  }
+
+  function pickLocale(ru, en) {
+    return isRuLocale() ? ru : en;
+  }
+
+  function getCommandMessage(cmd) {
+    if (!cmd) return "";
+    if (cmd.messageRu || cmd.messageEn) return pickLocale(cmd.messageRu || cmd.messageEn, cmd.messageEn || cmd.messageRu);
+    if (cmd.type === "addfish") {
+      const amount = cmd.amount || 0;
+      return amount >= 0
+        ? pickLocale(`🎁 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0420\u042B\u0411\u042B!`, `🎁 Admin sent you +${F.formatNum(amount)} fish!`)
+        : pickLocale(`⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0420\u042B\u0411\u042B!`, `⚠️ Admin took ${F.formatNum(Math.abs(amount))} fish from you!`);
+    }
+    if (cmd.type === "addcrystal") {
+      const amount = cmd.amount || 0;
+      return amount >= 0
+        ? pickLocale(`💎 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412!`, `💎 Admin sent you +${F.formatNum(amount)} amethysts!`)
+        : pickLocale(`⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412!`, `⚠️ Admin took ${F.formatNum(Math.abs(amount))} amethysts from you!`);
+    }
+    if (cmd.type === "wave") {
+      const en = { gold: "GOLD WAVE x2 for 5 sec", diamond: "DIAMOND WAVE x5 for 10 sec", rainbow: "RAINBOW WAVE x100 for 5 min", amethyst: "AMETHYST WAVE x100 for 5 min" }[cmd.waveType] || "EVENT";
+      return pickLocale(buildAdminWaveMessage(cmd.waveType), `⚡ Admin started ${en}!`);
+    }
+    if (cmd.type === "setclick") return pickLocale(buildAdminSetClickMessage(cmd.value || 0), `⚡ Admin set your click power to ${F.formatNum(cmd.value || 0)}`);
+    if (cmd.type === "setauto") return pickLocale(buildAdminSetAutoMessage(cmd.value || 0), `⚡ Admin set your auto income to ${F.formatNum(cmd.value || 0)}/sec`);
+    if (cmd.type === "replaceSave") return pickLocale(buildAdminReplaceSaveMessage(), "⚡ Admin changed your save data!");
+    if (cmd.type === "grantadmin") return pickLocale("⚡ \u0412\u0410\u041C \u0412\u042B\u0414\u0410\u041D\u0410 \u0410\u0414\u041C\u0418\u041D\u041A\u0410!", "⚡ You have been granted admin rights!");
+    if (cmd.type === "revokeadmin") return pickLocale("⚠️ \u0412\u0410\u0428\u0410 \u0410\u0414\u041C\u0418\u041D\u041A\u0410 \u0411\u042B\u041B\u0410 \u0417\u0410\u0411\u0420\u0410\u041D\u0410!", "⚠️ Your admin rights have been revoked!");
+    return cmd.message || "";
+  }
+
+  const PET_ADMIN_NAMES = {
+    random: "RANDOM PET",
+    cat: "Cat",
+    dog: "Dog",
+    slime: "Slime",
+    draco: "Draco",
+    mooncat: "Moon Cat"
+  };
+
+  function getPetAdminName(key) {
+    return PET_ADMIN_NAMES[key] || key || "PET";
+  }
+
+  function parsePetCount(raw) {
+    const n = F.parseNumInput(String(raw || "1"));
+    if (isNaN(n) || n <= 0) return 1;
+    return Math.min(100, Math.floor(n));
+  }
+
+  function getPetApiWithRetry(callback, tries = 20) {
+    if (window.petSystemApi && typeof window.petSystemApi.adminAddPets === "function") {
+      callback(window.petSystemApi);
+      return;
+    }
+    if (tries <= 0) {
+      F.showNotification("Pet system not ready!", "#ff6666", 2500);
+      return;
+    }
+    setTimeout(() => getPetApiWithRetry(callback, tries - 1), 250);
+  }
+
+  function applyLocalAddPet(petKey, count) {
+    getPetApiWithRetry((api) => {
+      api.adminAddPets(petKey || "random", count || 1, { silent: true });
+      F.saveGame();
+    });
+  }
+
+  function applyLocalLuck10(durationMs = ADMIN_LUCK_DURATION_MS) {
+    getPetApiWithRetry((api) => {
+      api.startAdminLuckEvent(durationMs, { silent: true });
+      F.saveGame();
+    });
+  }
+
+  function getPetCommand(petKey, count) {
+    const safeKey = petKey || "random";
+    const safeCount = parsePetCount(count);
+    return {
+      type: "addpet",
+      petKey: safeKey,
+      count: safeCount,
+      messageRu: `🐾 \u0410\u0414\u041C\u0418\u041D \u0412\u042B\u0414\u0410\u041B \u0412\u0410\u041C ${safeCount}x ${getPetAdminName(safeKey)}!`,
+      messageEn: `🐾 Admin gave you ${safeCount}x ${getPetAdminName(safeKey)}!`,
+      delayMs: 700
+    };
+  }
+
+  function getLuck10Command() {
+    return {
+      type: "luck10",
+      durationMs: ADMIN_LUCK_DURATION_MS,
+      messageRu: "🍀 \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B x10 \u0423\u0414\u0410\u0427\u0423 \u041D\u0410 10 \u041C\u0418\u041D\u0423\u0422!",
+      messageEn: "🍀 Admin started x10 LUCK for 10 minutes!",
+      delayMs: 900
+    };
+  }
 
   function getWaveMeta(waveType) {
     return {
-      gold: { title: "ЗОЛОТУЮ ВОЛНУ", mult: "x2", time: "5 СЕК", color: "#ffd700" },
-      diamond: { title: "АЛМАЗНУЮ ВОЛНУ", mult: "x5", time: "10 СЕК", color: "#00b4ff" },
-      rainbow: { title: "РАДУЖНУЮ ВОЛНУ", mult: "x100", time: "5 МИН", color: "#ff66ff" },
-      amethyst: { title: "АМЕТИСТОВУЮ ВОЛНУ", mult: "x100", time: "5 МИН", color: "#c084fc" }
-    }[waveType] || { title: "СОБЫТИЕ", mult: "", time: "", color: "#ffd700" };
+      gold: { title: "\u0417\u041E\u041B\u041E\u0422\u0423\u042E \u0412\u041E\u041B\u041D\u0423", mult: "x2", time: "5 \u0421\u0415\u041A", color: "#ffd700" },
+      diamond: { title: "\u0410\u041B\u041C\u0410\u0417\u041D\u0423\u042E \u0412\u041E\u041B\u041D\u0423", mult: "x5", time: "10 \u0421\u0415\u041A", color: "#00b4ff" },
+      rainbow: { title: "\u0420\u0410\u0414\u0423\u0416\u041D\u0423\u042E \u0412\u041E\u041B\u041D\u0423", mult: "x100", time: "5 \u041C\u0418\u041D", color: "#ff66ff" },
+      amethyst: { title: "\u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412\u0423\u042E \u0412\u041E\u041B\u041D\u0423", mult: "x100", time: "5 \u041C\u0418\u041D", color: "#c084fc" }
+    }[waveType] || { title: "\u0421\u041E\u0411\u042B\u0422\u0418\u0415", mult: "", time: "", color: "#ffd700" };
   }
 
   function buildAdminFishMessage(amount) {
-    if (amount >= 0) return `🎁 АДМИН ОТПРАВИЛ ВАМ +${F.formatNum(amount)} РЫБЫ!`;
-    return `⚠️ АДМИН ЗАБРАЛ У ВАС ${F.formatNum(Math.abs(amount))} РЫБЫ!`;
+    if (amount >= 0) return `🎁 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0420\u042B\u0411\u042B!`;
+    return `⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0420\u042B\u0411\u042B!`;
   }
 
   function buildAdminCrystalMessage(amount) {
-    if (amount >= 0) return `💎 АДМИН ОТПРАВИЛ ВАМ +${F.formatNum(amount)} КРИСТАЛЛОВ!`;
-    return `⚠️ АДМИН ЗАБРАЛ У ВАС ${F.formatNum(Math.abs(amount))} КРИСТАЛЛОВ!`;
+    if (amount >= 0) return `💎 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u041A\u0420\u0418\u0421\u0422\u0410\u041B\u041B\u041E\u0412!`;
+    return `⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u041A\u0420\u0418\u0421\u0422\u0410\u041B\u041B\u041E\u0412!`;
   }
 
   function buildAdminWaveMessage(waveType) {
     const meta = getWaveMeta(waveType);
-    return `⚡ АДМИН ЗАПУСТИЛ У ВАС ${meta.title} ${meta.mult} НА ${meta.time}!`;
+    return `⚡ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B \u0423 \u0412\u0410\u0421 ${meta.title} ${meta.mult} \u041D\u0410 ${meta.time}!`;
   }
 
   function buildAdminSetClickMessage(value) {
-    return `⚡ АДМИН УСТАНОВИЛ ВАМ СИЛУ КЛИКА: ${F.formatNum(value)}`;
+    return `⚡ \u0410\u0414\u041C\u0418\u041D \u0423\u0421\u0422\u0410\u041D\u041E\u0412\u0418\u041B \u0412\u0410\u041C \u0421\u0418\u041B\u0423 \u041A\u041B\u0418\u041A\u0410: ${F.formatNum(value)}`;
   }
 
   function buildAdminSetAutoMessage(value) {
-    return `⚡ АДМИН УСТАНОВИЛ ВАМ АВТОДОХОД: ${F.formatNum(value)}/SEC`;
+    return `⚡ \u0410\u0414\u041C\u0418\u041D \u0423\u0421\u0422\u0410\u041D\u041E\u0412\u0418\u041B \u0412\u0410\u041C \u0410\u0412\u0422\u041E\u0414\u041E\u0425\u041E\u0414: ${F.formatNum(value)}/SEC`;
+  }
+
+  function buildAdminReplaceSaveMessage() {
+    return "⚡ \u0410\u0414\u041C\u0418\u041D \u0418\u0417\u041C\u0415\u041D\u0418\u041B \u0412\u0410\u0428\u0418 \u0414\u0410\u041D\u041D\u042B\u0415 \u0418 \u0421\u041E\u0425\u0420\u0410\u041D\u0415\u041D\u0418\u0415!";
   }
 
   function getCommandNotifyColor(cmd) {
     if (cmd.type === "wave") return getWaveMeta(cmd.waveType).color;
-    if (cmd.type === "addcrystal") return "#c084fc";
-    if (cmd.type === "setclick" || cmd.type === "setauto") return "#4ade80";
+    if (cmd.type === "addcrystal" || cmd.type === "addpet") return "#c084fc";
+    if (cmd.type === "luck10") return "#ffd700";
+    if (cmd.type === "setclick" || cmd.type === "setauto" || cmd.type === "grantadmin") return "#4ade80";
+    if (cmd.type === "revokeadmin") return "#ff6666";
+    if (cmd.type === "replaceSave") return "#ff9f43";
     return "#ffd700";
   }
 
   function getCommandDelay(cmd) {
     if (typeof cmd.delayMs === "number") return cmd.delayMs;
     if (cmd.type === "wave") return 1200;
-    if (cmd.message) return 700;
+    if (cmd.type === "luck10") return 900;
+    if (cmd.type === "addpet") return 700;
+    if (cmd.message || cmd.messageRu || cmd.messageEn) return 700;
     return 0;
   }
 
-  /* ========== АДМИН: СЕБЕ ========== */
+  /* ========== \u0410\u0414\u041C\u0418\u041D: \u0421\u0415\u0411\u0415 ========== */
   document.querySelectorAll("[data-addfish]").forEach(btn => {
     btn.addEventListener("click", () => {
       if (!F.checkAdmin()) return;
@@ -183,7 +297,38 @@ function initAdmin() {
     });
   }
 
-  /* ========== АДМИН: REWARD ALL ========== */
+  const adminGivePetSelf = document.getElementById("adminGivePetSelf");
+  const adminPetType = document.getElementById("adminPetType");
+  const adminPetCount = document.getElementById("adminPetCount");
+  if (adminGivePetSelf && adminPetType && adminPetCount) {
+    adminGivePetSelf.addEventListener("click", () => {
+      if (!F.checkAdmin()) return;
+      const petKey = adminPetType.value || "random";
+      const count = parsePetCount(adminPetCount.value);
+      applyAdminCommand(getPetCommand(petKey, count));
+    });
+  }
+
+  const adminLuck10Self = document.getElementById("adminLuck10Self");
+  if (adminLuck10Self) {
+    adminLuck10Self.addEventListener("click", () => {
+      if (!F.checkAdmin()) return;
+      applyAdminCommand(getLuck10Command());
+    });
+  }
+
+  const adminLuck10All = document.getElementById("adminLuck10All");
+  if (adminLuck10All) {
+    adminLuck10All.addEventListener("click", async () => {
+      if (!F.checkAdmin() || !window.fb) return;
+      if (!confirm("Send x10 LUCK EVENT for 10 minutes to ALL players?")) return;
+      await sendCommandToAll(getLuck10Command());
+      applyAdminCommand(getLuck10Command());
+      alert("✓ x10 luck event sent to all players!");
+    });
+  }
+
+  /* ========== \u0410\u0414\u041C\u0418\u041D: REWARD ALL ========== */
   const adminRewardAllBtn = document.getElementById("adminRewardAllBtn");
   const adminRewardAllFish = document.getElementById("adminRewardAllFish");
   if (adminRewardAllBtn && adminRewardAllFish) {
@@ -328,7 +473,7 @@ function initAdmin() {
     } catch (e) { console.error("Reward all failed", e); }
   }
 
-  /* ========== АДМИН: СИНХР ОНИЗАЦИЯ ========== */
+  /* ========== \u0410\u0414\u041C\u0418\u041D: \u0421\u0418\u041D\u0425\u0420 \u041E\u041D\u0418\u0417\u0410\u0426\u0418\u042F ========== */
   const adminPushSave = document.getElementById("adminPushSave");
   if (adminPushSave) {
     adminPushSave.addEventListener("click", async () => {
@@ -377,8 +522,100 @@ function initAdmin() {
     });
   }
 
-  /* ========== АДМИН: ИГР ОКИ ========== */
+  /* ========== \u0410\u0414\u041C\u0418\u041D: \u0418\u0413\u0420 \u041E\u041A\u0418 ========== */
   let cachedAdminPlayers = [];
+  let cachedAdminRights = {};
+
+  function isUidCurrentlyAdmin(uid) {
+    return !!uid && ((F.isUidAdmin && F.isUidAdmin(uid)) || !!cachedAdminRights[uid]);
+  }
+
+  async function sendAdminRightsCommand(targetUid, type) {
+    if (!window.fb || !targetUid) return false;
+    if (targetUid === S.currentUser.uid) {
+      applyAdminCommand({ type });
+      return true;
+    }
+    const cmd = {
+      id: Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+      type,
+      from: S.currentUser.uid,
+      timestamp: Date.now(),
+      delayMs: 500
+    };
+    await window.fb.set(window.fb.ref(window.fb.db, `commands/${targetUid}/${cmd.id}`), cmd);
+    return true;
+  }
+
+  async function grantAdminToUid(uid) {
+    if (!F.checkAdmin() || !window.fb) return;
+    const targetUid = String(uid || "").trim();
+    if (!targetUid) { alert("Enter UID"); return; }
+    if (!confirm(`Grant admin rights to UID?\n${targetUid}`)) return;
+
+    let cloudOk = false;
+    let commandOk = false;
+    try {
+      await window.fb.set(window.fb.ref(window.fb.db, `admins/${targetUid}`), {
+        active: true,
+        grantedBy: S.currentUser.uid,
+        grantedAt: Date.now()
+      });
+      cachedAdminRights[targetUid] = true;
+      cloudOk = true;
+    } catch (e) {
+      console.warn("Cloud admin grant denied, using command fallback", e);
+    }
+
+    try {
+      commandOk = await sendAdminRightsCommand(targetUid, "grantadmin");
+    } catch (e) {
+      console.warn("Admin grant command failed", e);
+    }
+
+    if (!cloudOk && !commandOk) {
+      alert("Failed: no permission to write admins path or commands path. Check Firebase rules.");
+      return;
+    }
+    alert(cloudOk
+      ? "✓ Admin granted in cloud!"
+      : "✓ Admin grant command sent! Player gets admin after opening/refreshing the game.");
+    loadAdminPlayers();
+  }
+
+  async function revokeAdminFromUid(uid) {
+    if (!F.checkAdmin() || !window.fb) return;
+    const targetUid = String(uid || "").trim();
+    if (!targetUid) { alert("Enter UID"); return; }
+    if (targetUid === S.currentUser.uid) {
+      if (!confirm("You are revoking admin from yourself. Continue?")) return;
+    } else if (!confirm(`Revoke admin rights from UID?\n${targetUid}`)) return;
+
+    let cloudOk = false;
+    let commandOk = false;
+    try {
+      await window.fb.remove(window.fb.ref(window.fb.db, `admins/${targetUid}`));
+      delete cachedAdminRights[targetUid];
+      cloudOk = true;
+    } catch (e) {
+      console.warn("Cloud admin revoke denied, using command fallback", e);
+    }
+
+    try {
+      commandOk = await sendAdminRightsCommand(targetUid, "revokeadmin");
+    } catch (e) {
+      console.warn("Admin revoke command failed", e);
+    }
+
+    if (!cloudOk && !commandOk) {
+      alert("Failed: no permission to write admins path or commands path. Check Firebase rules.");
+      return;
+    }
+    alert(cloudOk
+      ? "✓ Admin revoked in cloud! Hardcoded owners cannot be revoked by this button."
+      : "✓ Revoke command sent! Player loses local admin after opening/refreshing the game.");
+    loadAdminPlayers();
+  }
 
   async function loadAdminPlayers() {
     if (!F.checkAdmin() || !window.fb) return;
@@ -386,15 +623,22 @@ function initAdmin() {
     if (!list) return;
     list.innerHTML = `<div class="top-loading">Loading...</div>`;
     try {
-      const [lbSnap, usersSnap] = await Promise.all([
+      const [lbRes, usersRes, adminsRes] = await Promise.allSettled([
         window.fb.get(window.fb.ref(window.fb.db, "leaderboard")),
-        window.fb.get(window.fb.ref(window.fb.db, "users"))
+        window.fb.get(window.fb.ref(window.fb.db, "users")),
+        window.fb.get(window.fb.ref(window.fb.db, "admins"))
       ]);
-      const lbData = lbSnap.val() || {};
-      const usersData = usersSnap.val() || {};
+      if (lbRes.status !== "fulfilled") throw lbRes.reason;
+      const lbData = lbRes.value.val() || {};
+      const usersData = usersRes.status === "fulfilled" ? (usersRes.value.val() || {}) : {};
+      const adminsData = adminsRes.status === "fulfilled" ? (adminsRes.value.val() || {}) : {};
+      if (usersRes.status !== "fulfilled") console.warn("Users read denied; showing leaderboard-only players", usersRes.reason);
+      if (adminsRes.status !== "fulfilled") console.warn("Admins read denied; admin badges may be incomplete", adminsRes.reason);
+      cachedAdminRights = Object.fromEntries(Object.entries(adminsData).filter(([uid, val]) => val === true || (val && val.active !== false)).map(([uid]) => [uid, true]));
 
       cachedAdminPlayers = Object.entries(lbData).map(([uid, lb]) => {
         const user = usersData[uid] || {};
+        user._adminGranted = isUidCurrentlyAdmin(uid);
         return [uid, lb, user];
       });
       cachedAdminPlayers.sort((a, b) => (b[1].fish || 0) - (a[1].fish || 0));
@@ -423,11 +667,13 @@ function initAdmin() {
     filtered.forEach(([uid, lb, userData]) => {
       const userStats = userData.stats || {};
       const isBanned = window.BANNED_UIDS && window.BANNED_UIDS.includes(uid);
+      const isAdminPlayer = isUidCurrentlyAdmin(uid) || !!userData._adminGranted;
+      const adminBadge = isAdminPlayer ? " [ADMIN]" : "";
       const el = document.createElement("div");
       el.className = "admin-player-card" + (isBanned ? " admin-banned" : "");
       el.innerHTML = `
         <div class="admin-player-head">
-          <span class="admin-player-name">${F.escapeHtml(lb.name || "Anon")}${isBanned ? " [BANNED]" : ""}</span>
+          <span class="admin-player-name">${F.escapeHtml((lb.vip ? "[VIP] " : "") + (lb.name || "Anon") + adminBadge)}${isBanned ? " [BANNED]" : ""}</span>
           <span class="admin-player-fish">${F.formatNum(lb.fish || 0)} 🐟</span>
         </div>
         <div class="admin-player-uid">${uid}</div>
@@ -452,6 +698,10 @@ function initAdmin() {
           <button class="admin-mini-btn ui-click" data-action="setclick">SET CLICK</button>
           <button class="admin-mini-btn ui-click" data-action="setauto">SET AUTO</button>
           <button class="admin-mini-btn ui-click" data-action="editstats">EDIT STATS</button>
+          <button class="admin-mini-btn ui-click" data-action="givepet">GIVE PET</button>
+          <button class="admin-mini-btn gold-admin ui-click" data-action="luck10">x10 LUCK</button>
+          <button class="admin-mini-btn ui-click" data-action="grantadmin">GRANT ADMIN</button>
+          <button class="admin-mini-btn danger-admin ui-click" data-action="revokeadmin">REVOKE ADMIN</button>
           <button class="admin-mini-btn danger-admin ui-click" data-action="wipe">WIPE</button>
           <button class="admin-mini-btn danger-admin ui-click" data-action="ban">BAN UID</button>
           <button class="admin-mini-btn danger-admin ui-click" data-action="del">DELETE</button>
@@ -483,6 +733,16 @@ function initAdmin() {
         return;
       }
 
+      if (action === "grantadmin") {
+        await grantAdminToUid(targetUid);
+        return;
+      }
+
+      if (action === "revokeadmin") {
+        await revokeAdminFromUid(targetUid);
+        return;
+      }
+
       if (action === "wipe") {
         if (!confirm(`WIPE ${lbData.name || "Anon"}? (leaderboard + data + commands)`)) return;
         await fb.remove(fb.ref(fb.db, `leaderboard/${targetUid}`));
@@ -495,6 +755,45 @@ function initAdmin() {
 
       if (action === "editstats") {
         openStatsEditor(targetUid, userData);
+        return;
+      }
+
+      if (action === "givepet") {
+        const petKeyRaw = prompt("Pet key: random / cat / dog / slime / draco / mooncat", "random");
+        if (petKeyRaw === null) return;
+        const petKey = (petKeyRaw || "random").trim().toLowerCase();
+        if (!PET_ADMIN_NAMES[petKey]) { alert("Invalid pet key!"); return; }
+        const countRaw = prompt("Count:", "1");
+        if (countRaw === null) return;
+        const count = parsePetCount(countRaw);
+        const petCmd = getPetCommand(petKey, count);
+        if (targetUid === S.currentUser.uid) {
+          applyAdminCommand(petCmd);
+          F.saveGame();
+          alert("✓ Pet added!");
+          return;
+        }
+        petCmd.id = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+        petCmd.from = S.currentUser.uid;
+        petCmd.timestamp = Date.now();
+        await fb.set(fb.ref(fb.db, `commands/${targetUid}/${petCmd.id}`), petCmd);
+        alert(`✓ Pet sent to ${lbData.name || "Anon"}!`);
+        return;
+      }
+
+      if (action === "luck10") {
+        const luckCmd = getLuck10Command();
+        if (targetUid === S.currentUser.uid) {
+          applyAdminCommand(luckCmd);
+          F.saveGame();
+          alert("✓ Luck event started!");
+          return;
+        }
+        luckCmd.id = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+        luckCmd.from = S.currentUser.uid;
+        luckCmd.timestamp = Date.now();
+        await fb.set(fb.ref(fb.db, `commands/${targetUid}/${luckCmd.id}`), luckCmd);
+        alert(`✓ x10 luck sent to ${lbData.name || "Anon"}!`);
         return;
       }
 
@@ -545,7 +844,7 @@ function initAdmin() {
     }
   }
 
-  /* ========== АДМИН: Р ЕДАКТОР  СТАТИСТИКИ ========== */
+  /* ========== \u0410\u0414\u041C\u0418\u041D: \u0420 \u0415\u0414\u0410\u041A\u0422\u041E\u0420  \u0421\u0422\u0410\u0422\u0418\u0421\u0422\u0418\u041A\u0418 ========== */
   function openStatsEditor(targetUid, userData) {
     const data = userData || {};
     const st = data.stats || {};
@@ -605,11 +904,33 @@ function initAdmin() {
           uid: targetUid,
           name: newData.profile?.name || "Anonymous",
           avatar: newData.profile?.avatar || null,
+          vip: !!newData.vipActive,
           fish: newData.stats.totalFishEarned || 0,
           clicks: newData.stats.totalClicks || 0,
           time: newData.stats.playTimeSec || 0,
+          rebirths: newData.rebirthCount || 0,
+          amethysts: newData.crystals || 0,
+          eggs: newData.petSystem?.eggsOpenedTotal || 0,
           updated: Date.now()
         });
+
+        if (targetUid === S.currentUser.uid) {
+          F.applySaveData(newData);
+          F.saveGame();
+          await F.pushToLeaderboard();
+          S.lastPushedFish = S.stats.totalFishEarned;
+        } else {
+          const syncCmd = {
+            id: Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+            type: "replaceSave",
+            data: newData,
+            from: S.currentUser.uid,
+            timestamp: Date.now(),
+            message: buildAdminReplaceSaveMessage(),
+            delayMs: 900
+          };
+          await window.fb.set(window.fb.ref(window.fb.db, `commands/${targetUid}/${syncCmd.id}`), syncCmd);
+        }
 
         modal.remove();
         alert("✓ Stats saved!");
@@ -623,6 +944,12 @@ function initAdmin() {
 
   const adminPlayerSearch = document.getElementById("adminPlayerSearch");
   if (adminPlayerSearch) adminPlayerSearch.addEventListener("input", (e) => renderAdminPlayers(e.target.value));
+
+  const adminGrantUid = document.getElementById("adminGrantUid");
+  const adminGrantBtn = document.getElementById("adminGrantBtn");
+  const adminRevokeBtn = document.getElementById("adminRevokeBtn");
+  if (adminGrantBtn && adminGrantUid) adminGrantBtn.addEventListener("click", () => grantAdminToUid(adminGrantUid.value));
+  if (adminRevokeBtn && adminGrantUid) adminRevokeBtn.addEventListener("click", () => revokeAdminFromUid(adminGrantUid.value));
 
   const adminClearTop = document.getElementById("adminClearTop");
   if (adminClearTop) {
@@ -639,7 +966,7 @@ function initAdmin() {
     });
   }
 
-  /* ========== РџР ИМЕНЕНИЕ КОМАНД ========== */
+  /* ========== \u0420\u045F\u0420 \u0418\u041C\u0415\u041D\u0415\u041D\u0418\u0415 \u041A\u041E\u041C\u0410\u041D\u0414 ========== */
   function executeAdminCommand(cmd) {
     if (cmd.type === "addfish") {
       S.score += cmd.amount;
@@ -651,6 +978,12 @@ function initAdmin() {
       S.crystals += cmd.amount;
       if (S.crystals < 0) S.crystals = 0;
       F.updateScore();
+    }
+    else if (cmd.type === "addpet") {
+      applyLocalAddPet(cmd.petKey || "random", cmd.count || 1);
+    }
+    else if (cmd.type === "luck10") {
+      applyLocalLuck10(cmd.durationMs || ADMIN_LUCK_DURATION_MS);
     }
     else if (cmd.type === "wave") {
       if (S.waveActive) F.endWave(S.activeWaveType);
@@ -670,15 +1003,34 @@ function initAdmin() {
       S.autoClicker = cmd.value;
       F.updateIncome();
     }
+    else if (cmd.type === "grantadmin") {
+      S.localAdminGranted = true;
+      F.saveGame();
+    }
+    else if (cmd.type === "revokeadmin") {
+      S.localAdminGranted = false;
+      S.isAdmin = false;
+      F.saveGame();
+    }
+    else if (cmd.type === "replaceSave") {
+      if (!cmd.data) return;
+      F.applySaveData(cmd.data);
+      F.saveGame();
+      if (S.currentUser) {
+        F.pushToLeaderboard();
+        S.lastPushedFish = S.stats.totalFishEarned;
+      }
+    }
   }
 
   function applyAdminCommand(cmd) {
     if (!cmd || !cmd.type) return;
 
     const delay = getCommandDelay(cmd);
-    if (cmd.message) {
+    const localizedMessage = getCommandMessage(cmd);
+    if (localizedMessage) {
       F.playRewardSound();
-      F.showNotification(cmd.message, getCommandNotifyColor(cmd), Math.max(4000, delay + 3200));
+      F.showNotification(localizedMessage, getCommandNotifyColor(cmd), Math.max(4000, delay + 3200));
     }
 
     if (delay > 0) setTimeout(() => executeAdminCommand(cmd), delay);

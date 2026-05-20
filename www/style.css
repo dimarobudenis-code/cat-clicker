@@ -78,7 +78,7 @@ canvas#space {
   left: 20px;
   z-index: 11;
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 
 .icon-btn {
@@ -280,7 +280,7 @@ canvas#space {
   transform: translateX(-50%);
   z-index: 10;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
 }
 
@@ -299,8 +299,8 @@ canvas#space {
 .bottom-btn:active { transform: scale(0.95); }
 
 .bottom-btn img {
-  width: 128px;
-  height: 128px;
+  width: 72px;
+  height: 72px;
   object-fit: contain;
   image-rendering: pixelated;
   user-select: none;
@@ -309,6 +309,50 @@ canvas#space {
 }
 
 /* ========== WAVES BAR ========== */
+.potion-status-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 154px;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: min(92vw, 520px);
+  pointer-events: none;
+}
+
+.potion-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(18, 18, 35, 0.92);
+  border: 2px solid #3a3a5a;
+  color: #fff;
+  font-size: 7px;
+  line-height: 1.5;
+  image-rendering: pixelated;
+  box-shadow: 0 0 12px rgba(0,0,0,0.24);
+}
+
+.potion-status-chip img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.potion-status-chip .potion-status-name {
+  color: #fff;
+}
+
+.potion-status-chip .potion-status-time {
+  color: #4ade80;
+}
+
 .waves-bar {
   position: fixed;
   bottom: 20px;
@@ -725,18 +769,20 @@ canvas#space {
 /* ========== TOP ========== */
 .top-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 4px;
 }
 
 .top-tab {
-  flex: 1;
+  flex: 1 1 calc(33.333% - 4px);
+  min-width: 0;
   padding: 10px 4px;
   background: #2a2a4a;
   border: 2px solid #3a3a5a;
   color: #888;
   font-family: inherit;
-  font-size: 8px;
+  font-size: 7px;
   cursor: pointer;
   text-align: center;
   transition: all 0.15s ease;
@@ -1409,4 +1455,108 @@ canvas#space {
   .neon-counter-inner { padding: 14px 20px; }
   .neon-counter-amount { font-size: 16px; }
   .admin-stats-modal { width: 90vw; }
+  .potion-status-bar { bottom: 146px; width: 94vw; }
+  .potion-status-chip { font-size: 6px; padding: 6px 8px; }
+  .top-tab { flex-basis: calc(50% - 4px); }
+}
+
+/* ========== FINAL: маленькие иконки зелий + tooltip; нижние слоты петов убраны ========== */
+@media (max-width: 768px) {
+  /* Зелья остаются маленькими квадратами, но возвращены на старое место —
+     над нижними кнопками, по центру, а не возле котика. */
+  .potion-status-bar {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: 146px !important;
+    transform: translateX(-50%) !important;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    z-index: 20;
+    pointer-events: all;
+    width: min(94vw, 520px);
+  }
+
+  .potion-status-chip {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: rgba(18, 18, 35, 0.95);
+    border: 2px solid #3a3a5a;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 0 8px rgba(0,0,0,0.5);
+  }
+
+  .potion-status-chip img {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Скрыть текст и таймер по умолчанию */
+  .potion-status-chip .potion-status-name,
+  .potion-status-chip .potion-status-time {
+    display: none;
+  }
+
+  /* Tooltip с полным временем при наведении / долгом нажатии */
+  .potion-status-chip:hover::after,
+  .potion-status-chip:active::after {
+    content: attr(data-time);
+    position: absolute;
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: 38px;
+    transform: translateX(-50%);
+    background: #111a33;
+    color: #4ade80;
+    font-size: 9px;
+    padding: 4px 8px;
+    border: 1px solid #3a3a5a;
+    border-radius: 3px;
+    white-space: nowrap;
+    z-index: 999;
+    box-shadow: 0 0 10px rgba(0,0,0,0.6);
+    pointer-events: none;
+  }
+
+  /* Убираем ТОЛЬКО 3 слота экипированных питомцев на главном экране.
+     Инвентарь питомцев (.pet-slot) НЕ трогаем. */
+  .equipped-bar,
+  .equipped-bar .equipped-slot,
+  .equipped-pet {
+    display: none !important;
+  }
+
+  .bottom-buttons {
+    bottom: 78px !important;
+  }
+  
+  .waves-bar {
+    bottom: 6px !important;
+  }
+}
+
+/* ========== VIP ========== */
+.vip-item {
+  border-color: #ffd700 !important;
+  background: linear-gradient(135deg, #2a2140, #3a2f12) !important;
+  box-shadow: 0 0 18px rgba(255, 215, 0, 0.18);
+}
+.vip-item .potion-name {
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.55);
+}
+.vip-item.active-potion {
+  border-color: #4ade80 !important;
+  background: linear-gradient(135deg, #17351f, #3a2f12) !important;
 }
