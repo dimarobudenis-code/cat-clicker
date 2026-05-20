@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Clicker</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      overflow: hidden;
+      background: black;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Press Start 2P', cursive;
+    }
+
+    canvas#space {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    /* ===== Свечение волн ===== */
+    .wave-glow {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .wave-glow.active {
+      opacity: 1;
+    }
+
+    .wave-glow.gold {
+      box-shadow: inset 0 0 120px 40px rgba(255, 215, 0, 0.3);
+      animation: pulseGold 1.5s ease-in-out infinite;
+    }
+
+    .wave-glow.diamond {
+      box-shadow: inset 0 0 120px 40px rgba(0, 180, 255, 0.3);
+      animation: pulseDiamond 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulseGold {
+      0%, 100% { box-shadow: inset 0 0 100px 30px rgba(255, 215, 0, 0.25); }
+      50% { box-shadow: inset 0 0 150px 50px rgba(255, 215, 0, 0.4); }
+    }
+
+    @keyframes pulseDiamond {
+      0%, 100% { box-shadow: inset 0 0 100px 30px rgba(0, 180, 255, 0.25); }
+      50% { box-shadow: inset 0 0 150px 50px rgba(0, 180, 255, 0.45); }
+    }
+
+    /* ===== Счётчик рыбы ===== */
+    .score-bar {
+      position: fixed;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+    }
+
+    .score-bar img {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .score-bar span {
+      color: #fff;
+      font-size: 20px;
+      min-width: 40px;
+    }
+
+    /* ===== Множитель ===== */
+    .multiplier-badge {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      color: #ffd700;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      text-align: center;
+    }
+
+    .multiplier-badge.active {
+      opacity: 1;
+    }
+
+    .multiplier-badge.diamond-text {
+      color: #00b4ff;
+    }
+
+    /* ===== Кот ===== */
+    .center {
+      position: relative;
+      z-index: 3;
+    }
+
+    .cat-btn {
+      background: transparent;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 0;
+      appearance: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .cat-btn img {
+      width: 300px;
+      height: 300px;
+      object-fit: contain;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+      transition: transform 0.12s ease;
+      image-rendering: pixelated;
+    }
+
+    .cat-btn.clicked img {
+      transform: scale(1.12);
+    }
+
+    /* ===== Летящая рыбка ===== */
+    .flying-fish {
+      position: fixed;
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      pointer-events: none;
+      z-index: 20;
+      user-select: none;
+      -webkit-user-drag: none;
+      image-rendering: pixelated;
+    }
+
+    /* ===== Кнопка магазина ===== */
+    .shop-btn {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: transparent;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 0;
+      appearance: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.15s ease;
+    }
+
+    .shop-btn:hover {
+      transform: translateX(-50%) scale(1.1);
+    }
+
+    .shop-btn:active {
+      transform: translateX(-50%) scale(0.95);
+    }
+
+    .shop-btn img {
+      width: 128px;
+      height: 128px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    /* ===== Волны (внизу) ===== */
+    .waves-bar {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 24px;
+      align-items: flex-end;
+    }
+
+    .wave-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .wave-label {
+      font-size: 7px;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .wave-label.gold-label { color: #ffd700; }
+    .wave-label.diamond-label { color: #00b4ff; }
+
+    .wave-progress-bg {
+      width: 120px;
+      height: 14px;
+      background: #1a1a2e;
+      border: 2px solid #3a3a5a;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .wave-progress-fill {
+      height: 100%;
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+
+    .wave-progress-fill.gold-fill {
+      background: #ffd700;
+    }
+
+    .wave-progress-fill.diamond-fill {
+      background: #00b4ff;
+    }
+
+    .wave-progress-bg.active-wave {
+      border-color: #fff;
+    }
+
+    .wave-timer {
+      font-size: 7px;
+      color: #aaa;
+      height: 12px;
+    }
+
+    /* ===== Затемнение ===== */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* ===== Магазин ===== */
+    .shop-menu {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      z-index: 60;
+      width: 420px;
+      max-height: 70vh;
+      background: #1a1a2e;
+      border: 4px solid #e0e0e0;
+      border-radius: 4px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      image-rendering: pixelated;
+      box-shadow: 8px 8px 0px #000, inset 0 0 0 2px #2a2a4a;
+    }
+
+    .shop-menu.active {
+      opacity: 1;
+      pointer-events: all;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .shop-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 4px solid #e0e0e0;
+    }
+
+    .shop-title {
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 0;
+      appearance: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s ease;
+    }
+
+    .close-btn:hover { transform: scale(1.15); }
+    .close-btn:active { transform: scale(0.9); }
+
+    .close-btn img {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .shop-items {
+      padding: 12px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .shop-items::-webkit-scrollbar { width: 8px; }
+    .shop-items::-webkit-scrollbar-track { background: #1a1a2e; }
+    .shop-items::-webkit-scrollbar-thumb { background: #e0e0e0; }
+
+    .shop-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 14px;
+      background: #2a2a4a;
+      border: 2px solid #3a3a5a;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      user-select: none;
+    }
+
+    .shop-item:hover {
+      background: #3a3a5a;
+      border-color: #fff;
+    }
+
+    .shop-item:active { background: #4a4a6a; }
+
+    .shop-item.locked {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .shop-item.locked:hover {
+      background: #2a2a4a;
+      border-color: #3a3a5a;
+    }
+
+    .item-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .item-name { color: #fff; font-size: 10px; }
+    .item-desc { color: #aaa; font-size: 7px; line-height: 1.4; }
+
+    .item-price {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #ffd700;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .item-price img {
+      width: 32px;
+      height: 32px;
+      image-rendering: pixelated;
+    }
+
+    .item-owned {
+      color: #888;
+      font-size: 8px;
+      text-align: right;
+      min-width: 30px;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 768px) {
+      .cat-btn img { width: 220px; height: 220px; }
+      .shop-menu { width: 90vw; }
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="space"></canvas>
+
+  <!-- Свечение волн -->
+  <div class="wave-glow" id="waveGlow"></div>
+
+  <!-- Счётчик -->
+  <div class="score-bar" id="scoreBar">
+    <img src="FishIcon1.png" alt="Fish" />
+    <span id="scoreText">0</span>
+  </div>
+
+  <!-- Множитель -->
+  <div class="multiplier-badge" id="multBadge">x2 GOLDEN WAVE</div>
+
+  <!-- Кот -->
+  <div class="center">
+    <button class="cat-btn" id="catBtn">
+      <img src="CatIcon1.png" alt="Cat" />
+    </button>
+  </div>
+
+  <!-- Магазин -->
+  <button class="shop-btn" id="shopBtn">
+    <img src="ShopIcon.png" alt="Shop" />
+  </button>
+
+  <!-- Волны -->
+  <div class="waves-bar">
+    <div class="wave-block">
+      <div class="wave-label gold-label">GOLDEN WAVE<br/>x2 / 5s</div>
+      <div class="wave-progress-bg" id="goldBg">
+        <div class="wave-progress-fill gold-fill" id="goldFill"></div>
+      </div>
+      <div class="wave-timer" id="goldTimer"></div>
+    </div>
+    <div class="wave-block">
+      <div class="wave-label diamond-label">DIAMOND WAVE<br/>x5 / 10s</div>
+      <div class="wave-progress-bg" id="diamondBg">
+        <div class="wave-progress-fill diamond-fill" id="diamondFill"></div>
+      </div>
+      <div class="wave-timer" id="diamondTimer"></div>
+    </div>
+  </div>
+
+  <!-- Затемнение -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- Меню магазина -->
+  <div class="shop-menu" id="shopMenu">
+    <div class="shop-header">
+      <div class="shop-title">SHOP</div>
+      <button class="close-btn" id="closeBtn">
+        <img src="CloseIcon.png" alt="Close" />
+      </button>
+    </div>
+    <div class="shop-items" id="shopItems"></div>
+  </div>
+
+  <script>
+    /* ========== КОСМОС ========== */
+    const canvas = document.getElementById("space");
+    const ctx = canvas.getContext("2d");
+    let w, h, particles = [];
+
+    function resize() {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+      createParticles();
+    }
+
+    function createParticles() {
+      particles = [];
+      const count = Math.floor((w * h) / 9000);
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          size: Math.random() * 2 + 0.5,
+          speedY: Math.random() * 1.2 + 0.2,
+          alpha: Math.random() * 0.8 + 0.2
+        });
+      }
+    }
+
+    function drawParticles() {
+      ctx.clearRect(0, 0, w, h);
+      for (const p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${p.alpha})`;
+        ctx.fill();
+        p.y += p.speedY;
+        if (p.y > h + 5) {
+          p.y = -5;
+          p.x = Math.random() * w;
+        }
+      }
+      requestAnimationFrame(drawParticles);
+    }
+
+    window.addEventListener("resize", resize);
+    resize();
+    drawParticles();
+
+    /* ========== СОХРАНЕНИЕ ========== */
+    function saveGame() {
+      const data = {
+        score,
+        clickPower,
+        autoClicker,
+        goldClicks,
+        diamondClicks,
+        shopOwned: shopItemsData.map(i => i.owned)
+      };
+      localStorage.setItem("catclicker_save", JSON.stringify(data));
+    }
+
+    function loadGame() {
+      const raw = localStorage.getItem("catclicker_save");
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        score = data.score || 0;
+        clickPower = data.clickPower || 1;
+        autoClicker = data.autoClicker || 0;
+        goldClicks = data.goldClicks || 0;
+        diamondClicks = data.diamondClicks || 0;
+        if (data.shopOwned) {
+          data.shopOwned.forEach((count, i) => {
+            if (shopItemsData[i]) shopItemsData[i].owned = count;
+          });
+        }
+        updateScore();
+        updateWaveBars();
+      } catch (e) {}
+    }
+
+    // Автосохранение каждые 5 секунд
+    setInterval(saveGame, 5000);
+
+    /* ========== ИГРОВЫЕ ДАННЫЕ ========== */
+    let score = 0;
+    let clickPower = 1;
+    let autoClicker = 0;
+    let goldClicks = 0;
+    let diamondClicks = 0;
+    let activeFish = 0;
+    const MAX_FISH = 3;
+
+    // Волны
+    let waveActive = false;
+    let waveMultiplier = 1;
+
+    const GOLD_REQUIRED = 100;
+    const DIAMOND_REQUIRED = 1000;
+
+    const scoreText = document.getElementById("scoreText");
+    const scoreBar = document.getElementById("scoreBar");
+    const catBtn = document.getElementById("catBtn");
+    const waveGlow = document.getElementById("waveGlow");
+    const multBadge = document.getElementById("multBadge");
+
+    const goldFill = document.getElementById("goldFill");
+    const diamondFill = document.getElementById("diamondFill");
+    const goldBg = document.getElementById("goldBg");
+    const diamondBg = document.getElementById("diamondBg");
+    const goldTimer = document.getElementById("goldTimer");
+    const diamondTimer = document.getElementById("diamondTimer");
+
+    const shopItemsData = [
+      {
+        name: "Double Fish",
+        desc: "+1 fish per click",
+        basePrice: 10,
+        owned: 0,
+        apply: () => { clickPower++; }
+      },
+      {
+        name: "Auto Fisher",
+        desc: "1 fish per second",
+        basePrice: 50,
+        owned: 0,
+        apply: () => { autoClicker++; }
+      },
+      {
+        name: "Lucky Paw",
+        desc: "+5 fish per click",
+        basePrice: 200,
+        owned: 0,
+        apply: () => { clickPower += 5; }
+      },
+      {
+        name: "Golden Cat",
+        desc: "+25 fish per click",
+        basePrice: 1000,
+        owned: 0,
+        apply: () => { clickPower += 25; }
+      },
+      {
+        name: "Fish Factory",
+        desc: "10 fish per second",
+        basePrice: 5000,
+        owned: 0,
+        apply: () => { autoClicker += 10; }
+      }
+    ];
+
+    function getPrice(item) {
+      return Math.floor(item.basePrice * Math.pow(1.5, item.owned));
+    }
+
+    /* ========== КЛИК ========== */
+    catBtn.addEventListener("click", () => {
+      catBtn.classList.add("clicked");
+      setTimeout(() => catBtn.classList.remove("clicked"), 120);
+
+      const totalFish = clickPower * waveMultiplier;
+
+      // Максимум 3 рыбки визуально
+      const fishToSpawn = Math.min(MAX_FISH - activeFish, 3);
+      for (let i = 0; i < fishToSpawn; i++) {
+        setTimeout(() => spawnFlyingFish(), i * 60);
+      }
+
+      score += totalFish;
+
+      // Считаем клики для волн только если волна не активна
+      if (!waveActive) {
+        goldClicks++;
+        diamondClicks++;
+        checkWaves();
+      }
+
+      updateScore();
+      updateWaveBars();
+    });
+
+    catBtn.addEventListener("mousedown", (e) => e.preventDefault());
+
+    function updateScore() {
+      scoreText.textContent = score;
+      renderShop();
+    }
+
+    /* ========== ВОЛНЫ ========== */
+    function updateWaveBars() {
+      if (waveActive) {
+        goldFill.style.width = "0%";
+        diamondFill.style.width = "0%";
+        return;
+      }
+
+      const goldPct = Math.min((goldClicks / GOLD_REQUIRED) * 100, 100);
+      const diamondPct = Math.min((diamondClicks / DIAMOND_REQUIRED) * 100, 100);
+
+      goldFill.style.width = goldPct + "%";
+      diamondFill.style.width = diamondPct + "%";
+    }
+
+    function checkWaves() {
+      // Алмазная приоритетнее
+      if (diamondClicks >= DIAMOND_REQUIRED) {
+        startWave("diamond", 5, 10);
+      } else if (goldClicks >= GOLD_REQUIRED) {
+        startWave("gold", 2, 5);
+      }
+    }
+
+    function startWave(type, multiplier, duration) {
+      waveActive = true;
+      waveMultiplier = multiplier;
+      goldClicks = 0;
+      diamondClicks = 0;
+
+      // Свечение
+      waveGlow.className = "wave-glow active " + type;
+
+      // Бейдж
+      multBadge.textContent = `x${multiplier} ${type === "gold" ? "GOLDEN" : "DIAMOND"} WAVE`;
+      multBadge.className = "multiplier-badge active" + (type === "diamond" ? " diamond-text" : "");
+
+      // Подсветка прогресс-бара
+      const bg = type === "gold" ? goldBg : diamondBg;
+      bg.classList.add("active-wave");
+
+      // Таймер
+      const timerEl = type === "gold" ? goldTimer : diamondTimer;
+      let remaining = duration;
+      timerEl.textContent = remaining + "s";
+
+      const interval = setInterval(() => {
+        remaining--;
+        timerEl.textContent = remaining + "s";
+        if (remaining <= 0) {
+          clearInterval(interval);
+          endWave(type);
+        }
+      }, 1000);
+
+      updateWaveBars();
+    }
+
+    function endWave(type) {
+      waveActive = false;
+      waveMultiplier = 1;
+
+      waveGlow.className = "wave-glow";
+      multBadge.className = "multiplier-badge";
+
+      const bg = type === "gold" ? goldBg : diamondBg;
+      bg.classList.remove("active-wave");
+
+      const timerEl = type === "gold" ? goldTimer : diamondTimer;
+      timerEl.textContent = "";
+
+      updateWaveBars();
+    }
+
+    /* ========== АВТОКЛИКЕР ========== */
+    setInterval(() => {
+      if (autoClicker > 0) {
+        score += autoClicker * waveMultiplier;
+        updateScore();
+      }
+    }, 1000);
+
+    /* ========== ЛЕТЯЩАЯ РЫБКА ========== */
+    function spawnFlyingFish() {
+      if (activeFish >= MAX_FISH) return;
+      activeFish++;
+
+      const fish = document.createElement("img");
+      fish.src = "FishIcon1.png";
+      fish.classList.add("flying-fish");
+      document.body.appendChild(fish);
+
+      const btnRect = catBtn.getBoundingClientRect();
+      const angle = Math.random() * Math.PI * 2;
+      const offset = 20 + Math.random() * 30;
+      const startX = btnRect.left + btnRect.width / 2 - 16 + Math.cos(angle) * offset;
+      const startY = btnRect.top + btnRect.height / 2 - 16 + Math.sin(angle) * offset;
+
+      const barRect = scoreBar.getBoundingClientRect();
+      const endX = barRect.left + 18 - 16;
+      const endY = barRect.top + barRect.height / 2 - 16;
+
+      fish.style.left = startX + "px";
+      fish.style.top = startY + "px";
+
+      const arcSide = (Math.random() - 0.5) * 100;
+      const arcUp = -(30 + Math.random() * 60);
+      const duration = 900 + Math.random() * 300;
+      const startTime = performance.now();
+
+      function animateFish(now) {
+        const elapsed = now - startTime;
+        let t = Math.min(elapsed / duration, 1);
+        t = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+        const curve = Math.sin(Math.PI * t);
+        const currentX = startX + (endX - startX) * t + arcSide * curve;
+        const currentY = startY + (endY - startY) * t + arcUp * curve;
+        const scale = 1 - t * 0.3;
+
+        fish.style.left = currentX + "px";
+        fish.style.top = currentY + "px";
+        fish.style.transform = `scale(${scale})`;
+        fish.style.opacity = 1 - t * 0.2;
+
+        if (t < 1) {
+          requestAnimationFrame(animateFish);
+        } else {
+          fish.remove();
+          activeFish--;
+
+          scoreBar.style.transition = "transform 0.1s ease";
+          scoreBar.style.transform = "translateX(-50%) scale(1.1)";
+          setTimeout(() => {
+            scoreBar.style.transform = "translateX(-50%) scale(1)";
+          }, 100);
+        }
+      }
+
+      requestAnimationFrame(animateFish);
+    }
+
+    /* ========== МАГАЗИН ========== */
+    const shopBtn = document.getElementById("shopBtn");
+    const overlay = document.getElementById("overlay");
+    const shopMenu = document.getElementById("shopMenu");
+    const closeBtn = document.getElementById("closeBtn");
+    const shopItemsEl = document.getElementById("shopItems");
+
+    function openShop() {
+      overlay.classList.add("active");
+      shopMenu.classList.add("active");
+      renderShop();
+    }
+
+    function closeShop() {
+      overlay.classList.remove("active");
+      shopMenu.classList.remove("active");
+    }
+
+    shopBtn.addEventListener("click", openShop);
+    closeBtn.addEventListener("click", closeShop);
+    overlay.addEventListener("click", closeShop);
+
+    function renderShop() {
+      shopItemsEl.innerHTML = "";
+
+      for (const item of shopItemsData) {
+        const price = getPrice(item);
+        const canBuy = score >= price;
+
+        const el = document.createElement("div");
+        el.className = "shop-item" + (canBuy ? "" : " locked");
+
+        el.innerHTML = `
+          <div class="item-info">
+            <div class="item-name">${item.name}</div>
+            <div class="item-desc">${item.desc}</div>
+          </div>
+          <div>
+            <div class="item-price">
+              <img src="FishIcon1.png" alt="fish" />
+              ${price}
+            </div>
+            <div class="item-owned">x${item.owned}</div>
+          </div>
+        `;
+
+        if (canBuy) {
+          el.addEventListener("click", () => {
+            score -= price;
+            item.owned++;
+            item.apply();
+            updateScore();
+            saveGame();
+          });
+        }
+
+        shopItemsEl.appendChild(el);
+      }
+    }
+
+    /* ========== ЗАГРУЗКА ========== */
+    loadGame();
+  </script>
+</body>
+</html>
