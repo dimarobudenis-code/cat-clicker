@@ -617,10 +617,10 @@
   <div class="wave-glow" id="waveGlow"></div>
 
   <div class="top-buttons">
-    <button class="icon-btn" id="profileBtn">
+    <button class="icon-btn ui-click" id="profileBtn">
       <img src="UserIcon.png" alt="Profile" />
     </button>
-    <button class="icon-btn" id="settingsBtn">
+    <button class="icon-btn ui-click" id="settingsBtn">
       <img src="SettingsIcon.png" alt="Settings" />
     </button>
   </div>
@@ -639,10 +639,10 @@
   </div>
 
   <div class="bottom-buttons">
-    <button class="bottom-btn" id="shopBtn">
+    <button class="bottom-btn ui-click" id="shopBtn">
       <img src="ShopIcon.png" alt="Shop" />
     </button>
-    <button class="bottom-btn" id="topBtn">
+    <button class="bottom-btn ui-click" id="topBtn">
       <img src="TopIcon.png" alt="Top" />
     </button>
   </div>
@@ -669,7 +669,7 @@
   <div class="menu" id="shopMenu">
     <div class="menu-header">
       <div class="menu-title">SHOP</div>
-      <button class="close-btn" data-close><img src="CloseIcon.png" alt="Close" /></button>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
     </div>
     <div class="menu-content" id="shopItems"></div>
   </div>
@@ -677,7 +677,7 @@
   <div class="menu" id="settingsMenu">
     <div class="menu-header">
       <div class="menu-title">SETTINGS</div>
-      <button class="close-btn" data-close><img src="CloseIcon.png" alt="Close" /></button>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
     </div>
     <div class="menu-content">
       <div class="setting-row">
@@ -685,23 +685,23 @@
           <div class="setting-label">WAVE GLOW</div>
           <div class="setting-desc">Show glow on screen edges during waves</div>
         </div>
-        <div class="toggle on" id="glowToggle"></div>
+        <div class="toggle on ui-click" id="glowToggle"></div>
       </div>
       <div class="setting-row">
         <div>
           <div class="setting-label">SOUND</div>
-          <div class="setting-desc">Coming soon</div>
+          <div class="setting-desc">Click sounds</div>
         </div>
-        <div class="toggle" style="opacity: 0.4; cursor: not-allowed;"></div>
+        <div class="toggle on ui-click" id="soundToggle"></div>
       </div>
-      <button class="danger-btn" id="resetBtn">RESET PROGRESS</button>
+      <button class="danger-btn ui-click" id="resetBtn">RESET PROGRESS</button>
     </div>
   </div>
 
   <div class="menu" id="profileMenu">
     <div class="menu-header">
       <div class="menu-title">PROFILE</div>
-      <button class="close-btn" data-close><img src="CloseIcon.png" alt="Close" /></button>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
     </div>
     <div class="menu-content">
       <div class="profile-top">
@@ -715,7 +715,7 @@
       </div>
 
       <div id="authBlock">
-        <button class="google-btn" id="googleBtn">SIGN IN WITH GOOGLE</button>
+        <button class="google-btn ui-click" id="googleBtn">SIGN IN WITH GOOGLE</button>
       </div>
 
       <div class="stats-block">
@@ -735,13 +735,13 @@
   <div class="menu" id="topMenu">
     <div class="menu-header">
       <div class="menu-title">TOP PLAYERS</div>
-      <button class="close-btn" data-close><img src="CloseIcon.png" alt="Close" /></button>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
     </div>
     <div class="menu-content">
       <div class="top-tabs">
-        <div class="top-tab active" data-tab="fish">FISH</div>
-        <div class="top-tab" data-tab="clicks">CLICKS</div>
-        <div class="top-tab" data-tab="time">TIME</div>
+        <div class="top-tab active ui-click" data-tab="fish">FISH</div>
+        <div class="top-tab ui-click" data-tab="clicks">CLICKS</div>
+        <div class="top-tab ui-click" data-tab="time">TIME</div>
       </div>
       <div id="topList">
         <div class="top-loading">Loading...</div>
@@ -756,6 +756,8 @@
       getAuth,
       GoogleAuthProvider,
       signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult,
       signOut,
       onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -786,19 +788,168 @@
     const db = getDatabase(app);
     const provider = new GoogleAuthProvider();
 
-    // Прокидываем функции наружу
     window.fb = {
       auth, db, provider,
-      signInWithPopup, signOut, onAuthStateChanged,
+      signInWithPopup, signInWithRedirect, getRedirectResult,
+      signOut, onAuthStateChanged,
       ref, set, get, onValue, query, orderByChild, limitToLast,
       GoogleAuthProvider
     };
 
-    // Сообщаем основному коду что Firebase загружен
     window.dispatchEvent(new Event("firebase-ready"));
   </script>
 
   <script>
+    /* ========== ЗВУКИ (Web Audio API) ========== */
+    let audioCtx = null;
+    let soundEnabled = true;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+          console.warn("Audio not supported");
+        }
+      }
+      if (audioCtx && audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // Звук UI клика (как мышка) - короткий мягкий клик
+    function playUIClick() {
+      if (!soundEnabled) return;
+      const ctx = ensureAudio();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "square";
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.exponentialRampToValueAtTime(400, now + 0.04);
+
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.06);
+    }
+
+    // Звук клика по коту - более "сочный", пиксельный pop
+    function playCatClick() {
+      if (!soundEnabled) return;
+      const ctx = ensureAudio();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+
+      // Главный тон
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(900, now + 0.05);
+      osc.frequency.exponentialRampToValueAtTime(500, now + 0.12);
+
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.15);
+
+      // Второй слой для "толщины"
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+
+      osc2.type = "square";
+      osc2.frequency.setValueAtTime(300, now);
+      osc2.frequency.exponentialRampToValueAtTime(450, now + 0.05);
+
+      gain2.gain.setValueAtTime(0.06, now);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+
+      osc2.start(now);
+      osc2.stop(now + 0.1);
+    }
+
+    // Звук покупки в магазине
+    function playBuySound() {
+      if (!soundEnabled) return;
+      const ctx = ensureAudio();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      const notes = [523, 659, 784]; // C, E, G - мажорный аккорд
+
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const t = now + i * 0.05;
+
+        osc.type = "square";
+        osc.frequency.setValueAtTime(freq, t);
+
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(t);
+        osc.stop(t + 0.2);
+      });
+    }
+
+    // Звук активации волны
+    function playWaveSound(type) {
+      if (!soundEnabled) return;
+      const ctx = ensureAudio();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      const isGold = type === "gold";
+      const baseFreq = isGold ? 440 : 660;
+
+      // Восходящий звук
+      for (let i = 0; i < 4; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const t = now + i * 0.06;
+
+        osc.type = "square";
+        osc.frequency.setValueAtTime(baseFreq * Math.pow(1.26, i), t);
+
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(t);
+        osc.stop(t + 0.15);
+      }
+    }
+
+    // Делегирование звука клика для всех UI-кнопок
+    document.addEventListener("click", (e) => {
+      const target = e.target.closest(".ui-click");
+      if (target) playUIClick();
+    }, true);
+
     /* ========== КОСМОС ========== */
     const canvas = document.getElementById("space");
     const ctx = canvas.getContext("2d");
@@ -867,9 +1018,8 @@
     };
 
     let profile = { name: "", avatar: null };
-    let settings = { glowEnabled: true };
+    let settings = { glowEnabled: true, soundEnabled: true };
 
-    // Firebase user
     let currentUser = null;
 
     const scoreText = document.getElementById("scoreText");
@@ -920,6 +1070,8 @@
       if (data.profile) profile = { ...profile, ...data.profile };
       if (data.settings) settings = { ...settings, ...data.settings };
 
+      soundEnabled = settings.soundEnabled !== false;
+
       updateScore();
       updateWaveBars();
       applyProfile();
@@ -931,7 +1083,6 @@
       const data = buildSaveData();
       localStorage.setItem("catclicker_save", JSON.stringify(data));
 
-      // Сохранить в облако если залогинен
       if (currentUser && window.fb) {
         try {
           window.fb.set(window.fb.ref(window.fb.db, `users/${currentUser.uid}`), data);
@@ -949,11 +1100,7 @@
 
     setInterval(saveGame, 5000);
     setInterval(() => { stats.playTimeSec++; }, 1000);
-
-    // Обновляем топ каждые 10 секунд
-    setInterval(() => {
-      if (currentUser) pushToLeaderboard();
-    }, 10000);
+    setInterval(() => { if (currentUser) pushToLeaderboard(); }, 10000);
 
     function formatTime(sec) {
       const h = Math.floor(sec / 3600);
@@ -962,10 +1109,12 @@
       return `${m}m`;
     }
 
-    /* ========== КЛИК ========== */
+    /* ========== КЛИК ПО КОТУ ========== */
     catBtn.addEventListener("click", () => {
       catBtn.classList.add("clicked");
       setTimeout(() => catBtn.classList.remove("clicked"), 120);
+
+      playCatClick();
 
       const totalFish = clickPower * waveMultiplier;
 
@@ -1020,6 +1169,8 @@
 
       if (type === "gold") stats.goldWaves++;
       else stats.diamondWaves++;
+
+      playWaveSound(type);
 
       if (settings.glowEnabled) {
         waveGlow.className = "wave-glow active " + type;
@@ -1185,6 +1336,7 @@
             item.owned++;
             item.apply();
             stats.itemsBought++;
+            playBuySound();
             updateScore();
             saveGame();
           });
@@ -1195,6 +1347,8 @@
 
     /* ========== НАСТРОЙКИ ========== */
     const glowToggle = document.getElementById("glowToggle");
+    const soundToggle = document.getElementById("soundToggle");
+
     glowToggle.addEventListener("click", () => {
       settings.glowEnabled = !settings.glowEnabled;
       applySettings();
@@ -1206,8 +1360,16 @@
       }
     });
 
+    soundToggle.addEventListener("click", () => {
+      settings.soundEnabled = !settings.soundEnabled;
+      soundEnabled = settings.soundEnabled;
+      applySettings();
+      saveGame();
+    });
+
     function applySettings() {
       glowToggle.classList.toggle("on", settings.glowEnabled);
+      soundToggle.classList.toggle("on", settings.soundEnabled);
     }
 
     document.getElementById("resetBtn").addEventListener("click", () => {
@@ -1257,6 +1419,7 @@
 
     /* ========== ТОП ========== */
     let currentTopTab = "fish";
+    let cachedLeaderboard = [];
 
     document.querySelectorAll(".top-tab").forEach(tab => {
       tab.addEventListener("click", () => {
@@ -1266,8 +1429,6 @@
         renderTop(cachedLeaderboard);
       });
     });
-
-    let cachedLeaderboard = [];
 
     async function loadTop() {
       const topList = document.getElementById("topList");
@@ -1298,7 +1459,7 @@
         return;
       }
 
-      const sortKey = currentTopTab; // fish | clicks | time
+      const sortKey = currentTopTab;
       const sorted = [...list].sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0)).slice(0, 50);
 
       sorted.forEach((player, idx) => {
@@ -1360,41 +1521,50 @@
       const fb = window.fb;
       if (!fb) return;
 
-      const googleBtn = document.getElementById("googleBtn");
-      const authBlock = document.getElementById("authBlock");
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-      googleBtn.addEventListener("click", async () => {
+      async function doSignIn() {
         try {
-          await fb.signInWithPopup(fb.auth, fb.provider);
+          if (isMobile) {
+            await fb.signInWithRedirect(fb.auth, fb.provider);
+          } else {
+            await fb.signInWithPopup(fb.auth, fb.provider);
+          }
         } catch (e) {
           alert("Sign in failed: " + e.message);
           console.error(e);
         }
+      }
+
+      fb.getRedirectResult(fb.auth).catch((e) => {
+        if (e.code !== "auth/no-auth-event") {
+          console.warn("Redirect result error:", e);
+        }
       });
+
+      const authBlock = document.getElementById("authBlock");
+      const googleBtn = document.getElementById("googleBtn");
+      if (googleBtn) googleBtn.addEventListener("click", doSignIn);
 
       fb.onAuthStateChanged(fb.auth, async (user) => {
         currentUser = user;
 
         if (user) {
-          // Подтянуть данные из облака
           try {
             const snap = await fb.get(fb.ref(fb.db, `users/${user.uid}`));
             const cloudData = snap.val();
 
             if (cloudData) {
-              // Если в облаке есть данные — спросить что использовать
               const localData = JSON.parse(localStorage.getItem("catclicker_save") || "null");
               const cloudFish = (cloudData.stats && cloudData.stats.totalFishEarned) || 0;
               const localFish = (localData && localData.stats && localData.stats.totalFishEarned) || 0;
 
               if (cloudFish > localFish) {
-                // Облачные данные больше — загружаем их
                 applySaveData(cloudData);
               }
             }
           } catch (e) { console.warn("Cloud load failed", e); }
 
-          // Подтянуть имя/аватарку из Google если не задано
           if (!profile.name && user.displayName) {
             profile.name = user.displayName;
             nameInput.value = profile.name;
@@ -1407,24 +1577,17 @@
           saveGame();
           pushToLeaderboard();
 
-          // Показать что вошёл
           authBlock.innerHTML = `
             <div class="auth-status">Signed in as ${escapeHtml(user.displayName || user.email)}</div>
-            <button class="signout-btn" id="signoutBtn">SIGN OUT</button>
+            <button class="signout-btn ui-click" id="signoutBtn">SIGN OUT</button>
           `;
           document.getElementById("signoutBtn").addEventListener("click", async () => {
             await fb.signOut(fb.auth);
             location.reload();
           });
         } else {
-          authBlock.innerHTML = `<button class="google-btn" id="googleBtn">SIGN IN WITH GOOGLE</button>`;
-          document.getElementById("googleBtn").addEventListener("click", async () => {
-            try {
-              await fb.signInWithPopup(fb.auth, fb.provider);
-            } catch (e) {
-              alert("Sign in failed: " + e.message);
-            }
-          });
+          authBlock.innerHTML = `<button class="google-btn ui-click" id="googleBtn">SIGN IN WITH GOOGLE</button>`;
+          document.getElementById("googleBtn").addEventListener("click", doSignIn);
         }
       });
     }
