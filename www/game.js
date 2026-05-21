@@ -1249,12 +1249,13 @@ function hashString64(str) {
   return ((h1 >>> 0).toString(16).padStart(8, "0") + (h2 >>> 0).toString(16).padStart(8, "0")).toUpperCase();
 }
 
-function makeSaveIntegrityHash(payloadB64, exportedAt, version) {
+function makeSaveIntegrityHash(payloadB64, exportedAt, version, ownerUid) {
   return hashString64([
     SAVE_FILE_HASH_VERSION,
     SAVE_FILE_TYPE,
     String(version),
     exportedAt,
+    ownerUid || "NO_UID",
     payloadB64,
     SAVE_FILE_INTEGRITY_KEY
   ].join("|"));
@@ -1264,13 +1265,20 @@ function createSaveFilePayload() {
   const data = buildSaveData();
   const exportedAt = new Date().toISOString();
   const version = SAVE_FILE_VERSION;
+  const ownerUid = currentUser ? currentUser.uid : null;
+  data.ownerUid = ownerUid;
+  // Protected JSON backups are meant to restore after app reinstall, where Firebase
+  // anonymous UID often changes. If the exporter currently has admin rights, store
+  // local admin access in the signed payload too.
+  data.localAdminGranted = !!(localAdminGranted || (ownerUid && isUidAdmin(ownerUid)) || isAdmin);
   const payload = base64EncodeUnicode(stableStringify(data));
-  const hash = makeSaveIntegrityHash(payload, exportedAt, version);
+  const hash = makeSaveIntegrityHash(payload, exportedAt, version, ownerUid);
   return {
     type: SAVE_FILE_TYPE,
     version,
     encoding: SAVE_FILE_ENCODING,
     hashVersion: SAVE_FILE_HASH_VERSION,
+    ownerUid,
     exportedAt,
     payload,
     hash
@@ -1280,14 +1288,19 @@ function createSaveFilePayload() {
 function decodeProtectedSave(raw) {
   if (!raw || raw.type !== SAVE_FILE_TYPE || raw.version !== SAVE_FILE_VERSION || raw.encoding !== SAVE_FILE_ENCODING) return null;
   if (!raw.payload || !raw.hash || !raw.exportedAt) return null;
-  const expectedHash = makeSaveIntegrityHash(raw.payload, raw.exportedAt, raw.version);
+  const ownerForHash = raw.ownerUid || "NO_UID";
+  const expectedHash = makeSaveIntegrityHash(raw.payload, raw.exportedAt, raw.version, ownerForHash);
   if (String(raw.hash).toUpperCase() !== expectedHash) {
     alert("Save file integrity check failed! File was edited or corrupted.");
     return null;
   }
   try {
     const decoded = base64DecodeUnicode(raw.payload);
-    return JSON.parse(decoded);
+    const parsed = JSON.parse(decoded);
+    // Owner UID is kept only for integrity metadata. Reinstalling the app can create
+    // a new anonymous Firebase UID, so protected saves are allowed to transfer to
+    // the currently logged-in UID after hash verification.
+    return parsed;
   } catch (e) {
     alert("Save file decode failed: " + e.message);
     return null;
@@ -1302,6 +1315,7 @@ function sanitizeImportedSaveData(data, trustedProtected) {
   delete clean.isAdmin;
   delete clean.remoteAdminUids;
   delete clean.currentUser;
+  delete clean.ownerUid;
   if (!trustedProtected) delete clean.localAdminGranted;
 
   const clampFinite = (obj, key, min, max, def) => {
@@ -1446,6 +1460,10 @@ function isDownloadHostileEnvironment() {
 }
 
 async function exportSaveToFile() {
+  if (!currentUser || !currentUser.uid) {
+    alert("Wait until account login finishes, then export again.");
+    return;
+  }
   const payload = createSaveFilePayload();
   const text = JSON.stringify(payload, null, 2);
   const fileName = makeSaveFileName();
