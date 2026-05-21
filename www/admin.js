@@ -1,5 +1,5 @@
 /* ==========================================================
-   CAT CLICKER — admin.js (Admin panel logic)
+   CAT CLICKER  admin.js (Admin panel logic)
    ========================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -36,24 +36,24 @@ function initAdmin() {
     if (cmd.type === "addfish") {
       const amount = cmd.amount || 0;
       return amount >= 0
-        ? pickLocale(`🎁 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0420\u042B\u0411\u042B!`, `🎁 Admin sent you +${F.formatNum(amount)} fish!`)
-        : pickLocale(`⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0420\u042B\u0411\u042B!`, `⚠️ Admin took ${F.formatNum(Math.abs(amount))} fish from you!`);
+        ? pickLocale(` \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0420\u042B\u0411\u042B!`, ` Admin sent you +${F.formatNum(amount)} fish!`)
+        : pickLocale(` \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0420\u042B\u0411\u042B!`, ` Admin took ${F.formatNum(Math.abs(amount))} fish from you!`);
     }
     if (cmd.type === "addcrystal") {
       const amount = cmd.amount || 0;
       return amount >= 0
-        ? pickLocale(`💎 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412!`, `💎 Admin sent you +${F.formatNum(amount)} amethysts!`)
-        : pickLocale(`⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412!`, `⚠️ Admin took ${F.formatNum(Math.abs(amount))} amethysts from you!`);
+        ? pickLocale(` \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412!`, ` Admin sent you +${F.formatNum(amount)} amethysts!`)
+        : pickLocale(` \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412!`, ` Admin took ${F.formatNum(Math.abs(amount))} amethysts from you!`);
     }
     if (cmd.type === "wave") {
       const en = { gold: "GOLD WAVE x2 for 5 sec", diamond: "DIAMOND WAVE x5 for 10 sec", rainbow: "RAINBOW WAVE x100 for 5 min", amethyst: "AMETHYST WAVE x100 for 5 min" }[cmd.waveType] || "EVENT";
-      return pickLocale(buildAdminWaveMessage(cmd.waveType), `⚡ Admin started ${en}!`);
+      return pickLocale(buildAdminWaveMessage(cmd.waveType), ` Admin started ${en}!`);
     }
-    if (cmd.type === "setclick") return pickLocale(buildAdminSetClickMessage(cmd.value || 0), `⚡ Admin set your click power to ${F.formatNum(cmd.value || 0)}`);
-    if (cmd.type === "setauto") return pickLocale(buildAdminSetAutoMessage(cmd.value || 0), `⚡ Admin set your auto income to ${F.formatNum(cmd.value || 0)}/sec`);
-    if (cmd.type === "replaceSave") return pickLocale(buildAdminReplaceSaveMessage(), "⚡ Admin changed your save data!");
-    if (cmd.type === "grantadmin") return pickLocale("⚡ \u0412\u0410\u041C \u0412\u042B\u0414\u0410\u041D\u0410 \u0410\u0414\u041C\u0418\u041D\u041A\u0410!", "⚡ You have been granted admin rights!");
-    if (cmd.type === "revokeadmin") return pickLocale("⚠️ \u0412\u0410\u0428\u0410 \u0410\u0414\u041C\u0418\u041D\u041A\u0410 \u0411\u042B\u041B\u0410 \u0417\u0410\u0411\u0420\u0410\u041D\u0410!", "⚠️ Your admin rights have been revoked!");
+    if (cmd.type === "setclick") return pickLocale(buildAdminSetClickMessage(cmd.value || 0), ` Admin set your click power to ${F.formatNum(cmd.value || 0)}`);
+    if (cmd.type === "setauto") return pickLocale(buildAdminSetAutoMessage(cmd.value || 0), ` Admin set your auto income to ${F.formatNum(cmd.value || 0)}/sec`);
+    if (cmd.type === "replaceSave") return pickLocale(buildAdminReplaceSaveMessage(), " Admin changed your save data!");
+    if (cmd.type === "grantadmin") return pickLocale(" \u0412\u0410\u041C \u0412\u042B\u0414\u0410\u041D\u0410 \u0410\u0414\u041C\u0418\u041D\u041A\u0410!", " You have been granted admin rights!");
+    if (cmd.type === "revokeadmin") return pickLocale(" \u0412\u0410\u0428\u0410 \u0410\u0414\u041C\u0418\u041D\u041A\u0410 \u0411\u042B\u041B\u0410 \u0417\u0410\u0411\u0420\u0410\u041D\u0410!", " Your admin rights have been revoked!");
     return cmd.message || "";
   }
 
@@ -109,8 +109,8 @@ function initAdmin() {
       type: "addpet",
       petKey: safeKey,
       count: safeCount,
-      messageRu: `🐾 \u0410\u0414\u041C\u0418\u041D \u0412\u042B\u0414\u0410\u041B \u0412\u0410\u041C ${safeCount}x ${getPetAdminName(safeKey)}!`,
-      messageEn: `🐾 Admin gave you ${safeCount}x ${getPetAdminName(safeKey)}!`,
+      messageRu: ` \u0410\u0414\u041C\u0418\u041D \u0412\u042B\u0414\u0410\u041B \u0412\u0410\u041C ${safeCount}x ${getPetAdminName(safeKey)}!`,
+      messageEn: ` Admin gave you ${safeCount}x ${getPetAdminName(safeKey)}!`,
       delayMs: 700
     };
   }
@@ -119,8 +119,8 @@ function initAdmin() {
     return {
       type: "luck10",
       durationMs: ADMIN_LUCK_DURATION_MS,
-      messageRu: "🍀 \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B x10 \u0423\u0414\u0410\u0427\u0423 \u041D\u0410 10 \u041C\u0418\u041D\u0423\u0422!",
-      messageEn: "🍀 Admin started x10 LUCK for 10 minutes!",
+      messageRu: " \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B x10 \u0423\u0414\u0410\u0427\u0423 \u041D\u0410 10 \u041C\u0418\u041D\u0423\u0422!",
+      messageEn: " Admin started x10 LUCK for 10 minutes!",
       delayMs: 900
     };
   }
@@ -135,30 +135,30 @@ function initAdmin() {
   }
 
   function buildAdminFishMessage(amount) {
-    if (amount >= 0) return `🎁 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0420\u042B\u0411\u042B!`;
-    return `⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0420\u042B\u0411\u042B!`;
+    if (amount >= 0) return ` \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0420\u042B\u0411\u042B!`;
+    return ` \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0420\u042B\u0411\u042B!`;
   }
 
   function buildAdminCrystalMessage(amount) {
-    if (amount >= 0) return `💎 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u041A\u0420\u0418\u0421\u0422\u0410\u041B\u041B\u041E\u0412!`;
-    return `⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u041A\u0420\u0418\u0421\u0422\u0410\u041B\u041B\u041E\u0412!`;
+    if (amount >= 0) return ` \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u041A\u0420\u0418\u0421\u0422\u0410\u041B\u041B\u041E\u0412!`;
+    return ` \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u041A\u0420\u0418\u0421\u0422\u0410\u041B\u041B\u041E\u0412!`;
   }
 
   function buildAdminWaveMessage(waveType) {
     const meta = getWaveMeta(waveType);
-    return `⚡ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B \u0423 \u0412\u0410\u0421 ${meta.title} ${meta.mult} \u041D\u0410 ${meta.time}!`;
+    return ` \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B \u0423 \u0412\u0410\u0421 ${meta.title} ${meta.mult} \u041D\u0410 ${meta.time}!`;
   }
 
   function buildAdminSetClickMessage(value) {
-    return `⚡ \u0410\u0414\u041C\u0418\u041D \u0423\u0421\u0422\u0410\u041D\u041E\u0412\u0418\u041B \u0412\u0410\u041C \u0421\u0418\u041B\u0423 \u041A\u041B\u0418\u041A\u0410: ${F.formatNum(value)}`;
+    return ` \u0410\u0414\u041C\u0418\u041D \u0423\u0421\u0422\u0410\u041D\u041E\u0412\u0418\u041B \u0412\u0410\u041C \u0421\u0418\u041B\u0423 \u041A\u041B\u0418\u041A\u0410: ${F.formatNum(value)}`;
   }
 
   function buildAdminSetAutoMessage(value) {
-    return `⚡ \u0410\u0414\u041C\u0418\u041D \u0423\u0421\u0422\u0410\u041D\u041E\u0412\u0418\u041B \u0412\u0410\u041C \u0410\u0412\u0422\u041E\u0414\u041E\u0425\u041E\u0414: ${F.formatNum(value)}/SEC`;
+    return ` \u0410\u0414\u041C\u0418\u041D \u0423\u0421\u0422\u0410\u041D\u041E\u0412\u0418\u041B \u0412\u0410\u041C \u0410\u0412\u0422\u041E\u0414\u041E\u0425\u041E\u0414: ${F.formatNum(value)}/SEC`;
   }
 
   function buildAdminReplaceSaveMessage() {
-    return "⚡ \u0410\u0414\u041C\u0418\u041D \u0418\u0417\u041C\u0415\u041D\u0418\u041B \u0412\u0410\u0428\u0418 \u0414\u0410\u041D\u041D\u042B\u0415 \u0418 \u0421\u041E\u0425\u0420\u0410\u041D\u0415\u041D\u0418\u0415!";
+    return " \u0410\u0414\u041C\u0418\u041D \u0418\u0417\u041C\u0415\u041D\u0418\u041B \u0412\u0410\u0428\u0418 \u0414\u0410\u041D\u041D\u042B\u0415 \u0418 \u0421\u041E\u0425\u0420\u0410\u041D\u0415\u041D\u0418\u0415!";
   }
 
   function getCommandNotifyColor(cmd) {
@@ -169,6 +169,12 @@ function initAdmin() {
     if (cmd.type === "revokeadmin") return "#ff6666";
     if (cmd.type === "replaceSave") return "#ff9f43";
     return "#ffd700";
+  }
+
+  function announceAdminAbuse(text) {
+    try {
+      if (F.postSystemChat) F.postSystemChat(text || "Admin abuse started!", "admin", { author: "ADMIN ABUSE", admin: true });
+    } catch (e) {}
   }
 
   function getCommandDelay(cmd) {
@@ -324,7 +330,7 @@ function initAdmin() {
       if (!confirm("Send x10 LUCK EVENT for 10 minutes to ALL players?")) return;
       await sendCommandToAll(getLuck10Command());
       applyAdminCommand(getLuck10Command());
-      alert("✓ x10 luck event sent to all players!");
+      alert(" x10 luck event sent to all players!");
     });
   }
 
@@ -364,7 +370,8 @@ function initAdmin() {
         F.updateScore();
         F.saveGame();
 
-        alert(`✓ Sent +${F.formatNum(amount)} fish to ${sent} players!`);
+        alert(` Sent +${F.formatNum(amount)} fish to ${sent} players!`);
+        announceAdminAbuse(`Admin sent ${F.formatNum(amount)} fish to all players!`);
         adminRewardAllFish.value = "";
       } catch (e) { alert("Failed: " + e.message); }
     });
@@ -402,7 +409,8 @@ function initAdmin() {
         if (S.crystals < 0) S.crystals = 0;
         F.updateScore();
         F.saveGame();
-        alert(`✓ Sent +${F.formatNum(amount)} crystals to ${sent} players!`);
+        alert(` Sent +${F.formatNum(amount)} crystals to ${sent} players!`);
+        announceAdminAbuse(`Admin sent ${F.formatNum(amount)} amethysts to all players!`);
         adminRewardAllCrystals.value = "";
       } catch (e) { alert("Failed: " + e.message); }
     });
@@ -470,6 +478,7 @@ function initAdmin() {
         };
         await fb.set(fb.ref(fb.db, `commands/${uid}/${cmd.id}`), cmd);
       }
+      if (baseCmd && baseCmd.type === "wave") announceAdminAbuse(`Admin started ${baseCmd.waveType || "special"} wave for all players!`);
     } catch (e) { console.error("Reward all failed", e); }
   }
 
@@ -480,7 +489,7 @@ function initAdmin() {
       if (!F.checkAdmin() || !window.fb) return;
       try {
         await window.fb.set(window.fb.ref(window.fb.db, `users/${S.currentUser.uid}`), F.buildSaveData());
-        alert("✓ Pushed!");
+        alert(" Pushed!");
       } catch (e) { alert("Failed: " + e.message); }
     });
   }
@@ -494,7 +503,7 @@ function initAdmin() {
         const data = snap.val();
         if (!data) { alert("No cloud data"); return; }
         F.applySaveData(data);
-        alert("✓ Pulled!");
+        alert(" Pulled!");
       } catch (e) { alert("Failed: " + e.message); }
     });
   }
@@ -516,7 +525,7 @@ function initAdmin() {
         S.recoveryCode = ourCode;
         F.updateRecoveryDisplay();
         F.saveGame();
-        alert("✓ Synced!");
+        alert(" Synced!");
         adminSyncUid.value = "";
       } catch (e) { alert("Failed: " + e.message); }
     });
@@ -578,8 +587,8 @@ function initAdmin() {
       return;
     }
     alert(cloudOk
-      ? "✓ Admin granted in cloud!"
-      : "✓ Admin grant command sent! Player gets admin after opening/refreshing the game.");
+      ? " Admin granted in cloud!"
+      : " Admin grant command sent! Player gets admin after opening/refreshing the game.");
     loadAdminPlayers();
   }
 
@@ -612,8 +621,8 @@ function initAdmin() {
       return;
     }
     alert(cloudOk
-      ? "✓ Admin revoked in cloud! Hardcoded owners cannot be revoked by this button."
-      : "✓ Revoke command sent! Player loses local admin after opening/refreshing the game.");
+      ? " Admin revoked in cloud! Hardcoded owners cannot be revoked by this button."
+      : " Revoke command sent! Player loses local admin after opening/refreshing the game.");
     loadAdminPlayers();
   }
 
@@ -674,7 +683,7 @@ function initAdmin() {
       el.innerHTML = `
         <div class="admin-player-head">
           <span class="admin-player-name">${F.escapeHtml((lb.vip ? "[VIP] " : "") + (lb.name || "Anon") + adminBadge)}${isBanned ? " [BANNED]" : ""}</span>
-          <span class="admin-player-fish">${F.formatNum(lb.fish || 0)} 🐟</span>
+          <span class="admin-player-fish">${F.formatNum(lb.fish || 0)} </span>
         </div>
         <div class="admin-player-uid">${uid}</div>
         <div class="admin-player-stats">
@@ -692,7 +701,7 @@ function initAdmin() {
           <button class="admin-mini-btn ui-click" data-action="addfish">+1K</button>
           <button class="admin-mini-btn ui-click" data-action="addfish10k">+10K</button>
           <button class="admin-mini-btn ui-click" data-action="addfish100k">+100K</button>
-          <button class="admin-mini-btn ui-click" data-action="custom">CUSTOM 🐟</button>
+          <button class="admin-mini-btn ui-click" data-action="custom">CUSTOM </button>
           <button class="admin-mini-btn gold-admin ui-click" data-action="goldwave">GOLD</button>
           <button class="admin-mini-btn diamond-admin ui-click" data-action="diamondwave">DIAMOND</button>
           <button class="admin-mini-btn ui-click" data-action="setclick">SET CLICK</button>
@@ -749,7 +758,7 @@ function initAdmin() {
         await fb.remove(fb.ref(fb.db, `users/${targetUid}`));
         await fb.remove(fb.ref(fb.db, `commands/${targetUid}`));
         cardEl.remove();
-        alert("✓ Wiped!");
+        alert(" Wiped!");
         return;
       }
 
@@ -770,14 +779,14 @@ function initAdmin() {
         if (targetUid === S.currentUser.uid) {
           applyAdminCommand(petCmd);
           F.saveGame();
-          alert("✓ Pet added!");
+          alert(" Pet added!");
           return;
         }
         petCmd.id = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
         petCmd.from = S.currentUser.uid;
         petCmd.timestamp = Date.now();
         await fb.set(fb.ref(fb.db, `commands/${targetUid}/${petCmd.id}`), petCmd);
-        alert(`✓ Pet sent to ${lbData.name || "Anon"}!`);
+        alert(` Pet sent to ${lbData.name || "Anon"}!`);
         return;
       }
 
@@ -786,14 +795,14 @@ function initAdmin() {
         if (targetUid === S.currentUser.uid) {
           applyAdminCommand(luckCmd);
           F.saveGame();
-          alert("✓ Luck event started!");
+          alert(" Luck event started!");
           return;
         }
         luckCmd.id = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
         luckCmd.from = S.currentUser.uid;
         luckCmd.timestamp = Date.now();
         await fb.set(fb.ref(fb.db, `commands/${targetUid}/${luckCmd.id}`), luckCmd);
-        alert(`✓ x10 luck sent to ${lbData.name || "Anon"}!`);
+        alert(` x10 luck sent to ${lbData.name || "Anon"}!`);
         return;
       }
 
@@ -830,7 +839,7 @@ function initAdmin() {
       if (targetUid === S.currentUser.uid) {
         applyAdminCommand(command);
         F.saveGame();
-        alert("✓ Applied!");
+        alert(" Applied!");
         return;
       }
 
@@ -838,7 +847,8 @@ function initAdmin() {
       command.from = S.currentUser.uid;
       command.timestamp = Date.now();
       await fb.set(fb.ref(fb.db, `commands/${targetUid}/${command.id}`), command);
-      alert(`✓ Sent to ${lbData.name || "Anon"}!`);
+      announceAdminAbuse(`Admin used ${command.type} on ${lbData.name || "Anon"}!`);
+      alert(` Sent to ${lbData.name || "Anon"}!`);
     } catch (e) {
       alert("Failed: " + e.message);
     }
@@ -933,7 +943,7 @@ function initAdmin() {
         }
 
         modal.remove();
-        alert("✓ Stats saved!");
+        alert(" Stats saved!");
         loadAdminPlayers();
       } catch (e) { alert("Failed: " + e.message); }
     });

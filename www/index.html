@@ -43,6 +43,9 @@
     <button class="icon-btn ui-click" id="settingsBtn">
       <img src="SettingsIcon.png" alt="Settings" />
     </button>
+    <button class="icon-btn ui-click" id="chatBtn">
+      <img src="ChatIcon.png" alt="Chat" />
+    </button>
   </div>
 
   <div class="score-bar" id="scoreBar">
@@ -78,6 +81,9 @@
     </button>
     <button class="bottom-btn ui-click" id="topBtn">
       <img src="TopIcon.png" alt="Top" />
+    </button>
+    <button class="bottom-btn ui-click" id="petShopBtn">
+      <img src="ShopPet.png" alt="Pets" />
     </button>
   </div>
 
@@ -207,6 +213,23 @@
         <div class="stat-row"><span class="stat-label">Golden waves</span><span class="stat-value" id="statGoldWaves">0</span></div>
         <div class="stat-row"><span class="stat-label">Diamond waves</span><span class="stat-value" id="statDiamondWaves">0</span></div>
         <div class="stat-row"><span class="stat-label">Items bought</span><span class="stat-value" id="statItems">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== CHAT ========== -->
+  <div class="menu chat-menu" id="chatMenu">
+    <div class="menu-header">
+      <div class="menu-title">GLOBAL CHAT</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content chat-content">
+      <div class="chat-messages" id="chatMessages">
+        <div class="top-loading">Loading chat...</div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" class="name-input" id="chatInput" placeholder="Message..." maxlength="120" />
+        <button class="recovery-btn ui-click" id="chatSendBtn">SEND</button>
       </div>
     </div>
   </div>
@@ -467,5 +490,5 @@
   <script charset="UTF-8" src="game.js"></script>
   <script charset="UTF-8" src="admin.js"></script>
   <script charset="UTF-8" src="Pet.js"></script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ff25d370ffae7b0',t:'MTc3OTM1Mzc0Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

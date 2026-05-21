@@ -1030,13 +1030,21 @@
      ========================================================== */
   function buildUi() {
     const bottomButtons = document.querySelector(".bottom-buttons");
-    if (!bottomButtons || document.getElementById("petShopBtn")) return;
+    if (!bottomButtons) return;
 
-    const petBtn = document.createElement("button");
-    petBtn.className = "bottom-btn ui-click";
-    petBtn.id = "petShopBtn";
-    petBtn.innerHTML = `<img src="ShopPet.png" alt="Pets" />`;
-    bottomButtons.appendChild(petBtn);
+    let petBtn = document.getElementById("petShopBtn");
+    if (!petBtn) {
+      petBtn = document.createElement("button");
+      petBtn.className = "bottom-btn ui-click";
+      petBtn.id = "petShopBtn";
+      petBtn.innerHTML = `<img src="ShopPet.png" alt="Pets" />`;
+      bottomButtons.appendChild(petBtn);
+    }
+    const petImg = petBtn.querySelector("img");
+    if (petImg) petImg.onerror = () => { petBtn.textContent = "PETS"; petBtn.classList.add("pet-text-btn"); };
+
+    const oldPetMenu = document.getElementById("petMenu");
+    if (oldPetMenu) oldPetMenu.remove();
 
     const petMenu = document.createElement("div");
     petMenu.className = "menu pet-menu";
@@ -1677,6 +1685,17 @@
     if (refs.hatchParticles) refs.hatchParticles.innerHTML = "";
   }
 
+  function postPetHatchChat(pet) {
+    if (!pet || (pet.rarity !== "Epic" && pet.rarity !== "Legendary")) return;
+    try {
+      const playerName = (window.gameState && window.gameState.profile && window.gameState.profile.name) || "Anonymous";
+      const eventType = pet.rarity === "Legendary" ? "legendary" : "epic";
+      if (window.gameFns && typeof window.gameFns.postSystemChat === "function") {
+        window.gameFns.postSystemChat(`${playerName} hatched ${pet.rarity} ${pet.name}!`, eventType, { author: "HATCH" });
+      }
+    } catch (e) {}
+  }
+
   function revealHatchedPet(pet) {
     if (!state.hatch) return;
     // \u0415\u0441\u043B\u0438 pet \u043D\u0435 \u043F\u0435\u0440\u0435\u0434\u0430\u043D — \u0441\u043E\u0437\u0434\u0430\u0451\u043C \u043D\u043E\u0432\u044B\u0439 (\u043D\u043E \u043C\u044B \u043F\u0435\u0440\u0435\u0434\u0430\u0451\u043C \u0438\u0437 onHatchTap)
@@ -1686,6 +1705,7 @@
     state.hatch.currentPet = finalPet;
     state.hatch.revealing = false;
     state.eggsOpenedTotal = (state.eggsOpenedTotal || 0) + 1;
+    postPetHatchChat(finalPet);
 
     const rarityMeta = RARITY_META[finalPet.rarity] || RARITY_META.Common;
     const isLegendary = finalPet.rarity === "Legendary";
@@ -1768,6 +1788,7 @@
       const pet = createRolledPet();
       state.inventory.push(pet);
       pets.push(pet);
+      postPetHatchChat(pet);
     }
     if (pets.length) state.selectedPetId = pets[pets.length - 1].id;
     state.eggsOpenedTotal = (state.eggsOpenedTotal || 0) + pets.length;
@@ -1796,6 +1817,7 @@
       const pet = createRolledPet();
       state.inventory.push(pet);
       pets.push(pet);
+      postPetHatchChat(pet);
     }
     if (pets.length) state.selectedPetId = pets[pets.length - 1].id;
     state.eggsOpenedTotal = (state.eggsOpenedTotal || 0) + pets.length;

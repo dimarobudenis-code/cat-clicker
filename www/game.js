@@ -219,6 +219,21 @@ function formatDuration(ms) {
   const s = Math.floor((ms % 60000) / 1000);
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
+function makePlayerId() {
+  try {
+    if (crypto && crypto.randomUUID) return "player_" + crypto.randomUUID();
+  } catch (e) {}
+  return "player_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12);
+}
+function ensurePlayerId() {
+  if (!playerId) playerId = makePlayerId();
+  return playerId;
+}
+function formatChatTime(ts) {
+  const d = new Date(ts || Date.now());
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 /* ========== \u0414\u0410\u041D\u041D\u042B\u0415 ========== */
 let score = 0;
@@ -239,6 +254,7 @@ let stats = {
   goldWaves: 0, diamondWaves: 0, itemsBought: 0
 };
 let profile = { name: "", avatar: null };
+let playerId = null;
 let settings = { glowEnabled: true, soundEnabled: true };
 let currentUser = null;
 let recoveryCode = null;
@@ -271,6 +287,9 @@ const AUTO_BACKUP_STORAGE_KEY = "catclicker_auto_backups";
 const AUTO_BACKUP_LIMIT = 3;
 let lastHiddenAt = null;
 let lastResumeHandledAt = 0;
+let chatListening = false;
+let chatLastSendAt = 0;
+let cachedChatMessages = [];
 
 const scoreText = $("scoreText");
 const crystalText = $("crystalText");
@@ -381,6 +400,7 @@ function doRebirth() {
   updateIncome();
   saveGame();
   showNotification("✨ REBIRTH #"+rebirthCount+"!\n+10 Crystals!\nx"+rebirthMultiplier.toFixed(2)+" fish boost!", "#a855f7", 4000);
+  postSystemChat(`${getChatName()} made rebirth #${rebirthCount}!`, "system", { author: "REBIRTH" });
 }
 
 /* ========== \u0417\u0415\u041B\u042C\u042F ========== */
@@ -539,7 +559,7 @@ function buildSaveData(lastOnlineOverride = Date.now()) {
     score, crystals, clickPower, autoClicker, goldClicks, diamondClicks,
     rebirthCount, rebirthMultiplier, potions, vipActive,
     shopOwned: shopItemsData.map(i => i.owned),
-    stats, profile, settings, recoveryCode, usedPromoCodes, localAdminGranted,
+    stats, profile, playerId, settings, recoveryCode, usedPromoCodes, localAdminGranted,
     lastOnline: lastOnlineOverride
   };
 }
@@ -579,6 +599,8 @@ function applySaveData(data) {
   }
   if (data.stats) stats = { ...stats, ...data.stats };
   if (data.profile) profile = { ...profile, ...data.profile };
+  if (data.playerId) playerId = data.playerId;
+  ensurePlayerId();
   if (data.settings) settings = { ...settings, ...data.settings };
   if (data.recoveryCode !== undefined) recoveryCode = data.recoveryCode;
   if (data.usedPromoCodes) usedPromoCodes = data.usedPromoCodes;
@@ -633,6 +655,7 @@ function getLeaderboardSignature() {
     crystals,
     getEggsOpenedCount(),
     vipActive ? 1 : 0,
+    playerId || "",
     profile.name || "",
     profile.avatar ? 1 : 0
   ].join("|");
@@ -861,6 +884,7 @@ const shopMenu = $("shopMenu");
 const potionMenu = $("potionMenu");
 const settingsMenu = $("settingsMenu");
 const profileMenu = $("profileMenu");
+const chatMenu = $("chatMenu");
 const topMenu = $("topMenu");
 const adminMenu = $("adminMenu");
 
@@ -872,11 +896,12 @@ function openMenu(menu) {
   if (menu === shopMenu) renderShop();
   if (menu === potionMenu) renderPotionShop();
   if (menu === profileMenu) renderStats();
+  if (menu === chatMenu) openChat();
   if (menu === topMenu) loadTop();
 }
 function closeAllMenus() {
   if (overlay) overlay.classList.remove("active");
-  [shopMenu, potionMenu, settingsMenu, profileMenu, topMenu, adminMenu].forEach(m => {
+  [shopMenu, potionMenu, settingsMenu, profileMenu, chatMenu, topMenu, adminMenu].forEach(m => {
     if (m) m.classList.remove("active");
   });
 }
@@ -884,6 +909,7 @@ on("shopBtn", "click", () => openMenu(shopMenu));
 on("potionShopBtn", "click", () => openMenu(potionMenu));
 on("settingsBtn", "click", () => openMenu(settingsMenu));
 on("profileBtn", "click", () => openMenu(profileMenu));
+on("chatBtn", "click", () => openMenu(chatMenu));
 on("topBtn", "click", () => openMenu(topMenu));
 document.querySelectorAll("[data-close]").forEach(btn => {
   btn.addEventListener("click", closeAllMenus);
@@ -1116,6 +1142,119 @@ function renderStats() {
   }
 }
 
+/* ========== GLOBAL CHAT ========== */
+const chatMessagesEl = $("chatMessages");
+const chatInput = $("chatInput");
+const chatSendBtn = $("chatSendBtn");
+
+function cleanChatText(text) {
+  return String(text || "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+}
+function getChatName() {
+  return (profile.name || "Anonymous").trim().slice(0, 20) || "Anonymous";
+}
+function makeChatId() {
+  return Date.now() + "_" + Math.random().toString(36).slice(2, 10);
+}
+function renderChatMessages(list) {
+  if (!chatMessagesEl) return;
+  const msgs = (list || []).slice(-80);
+  if (!msgs.length) {
+    chatMessagesEl.innerHTML = `<div class="chat-muted">No messages yet. Say hello!</div>`;
+    return;
+  }
+  chatMessagesEl.innerHTML = msgs.map((msg) => {
+    const cls = ["chat-line", msg.type === "system" ? "system" : "", msg.eventType || "", msg.admin ? "admin" : ""].filter(Boolean).join(" ");
+    const authorCls = msg.vip ? "chat-author vip" : "chat-author";
+    const author = msg.type === "system" ? (msg.author || "SYSTEM") : (msg.name || "Anonymous");
+    return `
+      <div class="${cls}">
+        <div class="chat-meta">
+          <span class="${authorCls}">${escapeHtml(author)}</span>
+          <span class="chat-time">${formatChatTime(msg.createdAt)}</span>
+        </div>
+        <div class="chat-text">${escapeHtml(msg.text || "")}</div>
+      </div>
+    `;
+  }).join("");
+  chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+}
+function listenChat() {
+  if (chatListening || !window.fb || !chatMessagesEl) return;
+  chatListening = true;
+  try {
+    const fb = window.fb;
+    fb.onValue(fb.ref(fb.db, "chatMessages"), (snap) => {
+      const data = snap.val() || {};
+      cachedChatMessages = Object.values(data)
+        .filter((m) => m && typeof m === "object")
+        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+        .slice(-100);
+      renderChatMessages(cachedChatMessages);
+    });
+  } catch (e) {
+    chatMessagesEl.innerHTML = `<div class="chat-muted">Chat unavailable: ${escapeHtml(e.message || String(e))}</div>`;
+    chatListening = false;
+  }
+}
+function openChat() {
+  renderChatMessages(cachedChatMessages);
+  listenChat();
+  setTimeout(() => { if (chatInput) chatInput.focus(); }, 80);
+}
+async function sendChatMessage() {
+  if (!window.fb || !currentUser) { alert("Chat is not ready yet."); return; }
+  const text = cleanChatText(chatInput && chatInput.value);
+  if (!text) return;
+  const now = Date.now();
+  if (now - chatLastSendAt < 2500 && !checkAdmin()) {
+    showNotification("Chat cooldown...", "#ff6666", 1600);
+    return;
+  }
+  chatLastSendAt = now;
+  const msg = {
+    id: makeChatId(),
+    type: "user",
+    uid: currentUser.uid,
+    playerId: ensurePlayerId(),
+    name: getChatName(),
+    vip: !!vipActive,
+    text,
+    createdAt: now
+  };
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `chatMessages/${msg.id}`), msg);
+    if (chatInput) chatInput.value = "";
+  } catch (e) {
+    alert("Chat send failed: " + e.message);
+  }
+}
+async function postSystemChat(text, eventType = "system", extra = {}) {
+  if (!window.fb || !currentUser) return;
+  const clean = cleanChatText(text);
+  if (!clean) return;
+  const msg = {
+    id: makeChatId(),
+    type: "system",
+    eventType,
+    uid: currentUser.uid,
+    author: extra.author || "SYSTEM",
+    text: clean,
+    playerId: ensurePlayerId(),
+    name: getChatName(),
+    vip: !!vipActive,
+    admin: !!extra.admin,
+    createdAt: Date.now()
+  };
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `chatMessages/${msg.id}`), msg);
+  } catch (e) { console.warn("System chat failed", e); }
+}
+if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
+if (chatInput) chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); sendChatMessage(); }
+});
+
 /* ========== \u0422\u041E\u041F ========== */
 let currentTopTab = "fish";
 let cachedLeaderboard = [];
@@ -1147,7 +1286,18 @@ function renderTop(list) {
     return;
   }
   const filtered = list.filter(p => !BANNED_UIDS.includes(p.uid));
-  const sorted = [...filtered].sort((a, b) => (b[currentTopTab] || 0) - (a[currentTopTab] || 0)).slice(0, 50);
+  const byIdentity = new Map();
+  filtered.forEach((p) => {
+    const key = p.playerId || p.uid || ((p.name || "anon") + "_" + (p.avatar ? "avatar" : "noavatar"));
+    const old = byIdentity.get(key);
+    if (!old) byIdentity.set(key, p);
+    else {
+      const oldVal = old[currentTopTab] || 0;
+      const newVal = p[currentTopTab] || 0;
+      if (newVal > oldVal || (newVal === oldVal && (p.updated || 0) > (old.updated || 0))) byIdentity.set(key, p);
+    }
+  });
+  const sorted = [...byIdentity.values()].sort((a, b) => (b[currentTopTab] || 0) - (a[currentTopTab] || 0)).slice(0, 50);
   sorted.forEach((player, idx) => {
     const rank = idx + 1;
     let rankClass = "normal";
@@ -1169,7 +1319,7 @@ function renderTop(list) {
     el.innerHTML = `
       <div class="top-rank ${rankClass}">#${rank}</div>
       <div class="top-avatar"><img src="${player.avatar || 'CatIcon1.png'}" alt="" onerror="this.src='CatIcon1.png'" /></div>
-      <div class="top-name">${escapeHtml(displayName)}</div>
+      <div class="top-name ${player.vip ? "vip-name" : ""}">${escapeHtml(displayName)}</div>
       <div class="top-value">${value}</div>
     `;
     topList.appendChild(el);
@@ -1183,8 +1333,10 @@ function escapeHtml(text) {
 async function pushToLeaderboard() {
   if (!currentUser || !window.fb) return;
   try {
+    const pid = playerId || ensurePlayerId();
     await window.fb.set(window.fb.ref(window.fb.db, `leaderboard/${currentUser.uid}`), {
       uid: currentUser.uid,
+      playerId: pid,
       name: profile.name || "Anonymous",
       avatar: profile.avatar || null,
       vip: vipActive,
@@ -1196,6 +1348,18 @@ async function pushToLeaderboard() {
       eggs: getEggsOpenedCount(),
       updated: Date.now()
     });
+    // Anti-clone cleanup: after restoring a protected JSON on a new anonymous UID,
+    // the same playerId may exist under the old UID. Hide in renderTop and try to
+    // remove old leaderboard rows if rules allow it.
+    try {
+      const snap = await window.fb.get(window.fb.ref(window.fb.db, "leaderboard"));
+      const all = snap.val() || {};
+      for (const [uid, row] of Object.entries(all)) {
+        if (uid !== currentUser.uid && row && row.playerId === pid) {
+          await window.fb.remove(window.fb.ref(window.fb.db, `leaderboard/${uid}`));
+        }
+      }
+    } catch (e) { console.warn("Clone leaderboard cleanup skipped", e); }
     lastPushedFish = stats.totalFishEarned;
     lastLeaderboardSignature = getLeaderboardSignature();
   } catch (e) { console.warn("Leaderboard push failed", e); }
@@ -1672,7 +1836,9 @@ if (window.fb) initAuth();
 else window.addEventListener("firebase-ready", initAuth);
 
 /* ========== START ========== */
+ensurePlayerId();
 loadGame();
+ensurePlayerId();
 updateIncome();
 updatePotionStatusBar();
 
@@ -1699,6 +1865,7 @@ window.gameState = {
   get activeWaveType() { return activeWaveType; },
   get stats() { return stats; },
   get profile() { return profile; },
+  get playerId() { return playerId; }, set playerId(v) { playerId = v || playerId; },
   get settings() { return settings; },
   get shopItemsData() { return shopItemsData; },
   get currentUser() { return currentUser; },
@@ -1720,7 +1887,7 @@ window.gameFns = {
   saveGame, buildSaveData, applySaveData,
   startWave, endWave, queueWavesSequentially,
   playRewardSound, playWaveSound, playBuySound, showNotification,
-  openMenu, closeAllMenus, renderShop, renderPotionShop, renderStats, loadTop, renderTop, pushToLeaderboard,
+  openMenu, closeAllMenus, renderShop, renderPotionShop, renderStats, loadTop, renderTop, pushToLeaderboard, postSystemChat,
   checkAdmin, isUidAdmin, canUseAdmin, spawnFlyingFish, spawnFlyingCrystal,
   getRebirthCost, doRebirth, getClickIncome, getAutoIncome, getPetLuckMult, updatePotionStatusBar, grantVipPetIfPossible
 };
