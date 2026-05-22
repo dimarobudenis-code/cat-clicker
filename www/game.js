@@ -1604,6 +1604,13 @@ on("resetBtn", "click", async () => {
 });
 
 /* ========== \u0420\u045F\u0420 \u041E\u041C\u041E\u041A\u041E\u0414\u042B ========== */
+async function waitForPetSystemApi(tries = 30, delayMs = 100) {
+  for (let i = 0; i < tries; i++) {
+    if (window.petSystemApi) return window.petSystemApi;
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+  return window.petSystemApi || null;
+}
 async function applyPromoReward(reward) {
   if (!reward || typeof reward !== "object") return;
   if (reward.fish) { score += reward.fish; stats.totalFishEarned += reward.fish; }
@@ -1613,11 +1620,19 @@ async function applyPromoReward(reward) {
   if (reward.autoClicker) autoClicker += reward.autoClicker;
   if (reward.petKey) {
     const count = Math.max(1, parseInt(reward.petCount || 1, 10) || 1);
-    try { window.petSystemApi?.adminAddPets?.(reward.petKey, count, { silent: true }); } catch (e) {}
+    const api = await waitForPetSystemApi();
+    try {
+      const res = api?.adminAddPets?.(reward.petKey, count, { silent: true });
+      if (!res || res.added === 0) showNotification("Promo pet could not be added: no free slots or pet system not ready", "#ff6666", 2600);
+    } catch (e) { console.warn("Promo pet reward failed", e); }
   }
   if (reward.eggPetKey) {
     const count = Math.max(1, parseInt(reward.eggCount || 1, 10) || 1);
-    try { window.petSystemApi?.openForcedPetEgg?.(reward.eggPetKey, count); } catch (e) {}
+    const api = await waitForPetSystemApi();
+    try {
+      const res = api?.openForcedPetEgg?.(reward.eggPetKey, count);
+      if (res && res.ok === false) showNotification(res.error || "Promo egg could not be opened", "#ff6666", 2600);
+    } catch (e) { console.warn("Promo egg reward failed", e); }
   }
   if (reward.potionType && reward.potionMinutes) {
     const type = reward.potionType;
@@ -1654,8 +1669,10 @@ async function activateDynamicPromoCode(code) {
   updatePotionStatusBar();
   saveGame();
   try {
-    await fb.update(fb.ref(fb.db, `promoCodes/${code}`), { usedCount: usedCount + 1, updatedAt: Date.now() });
+    // Write child paths separately so normal players do not need admin write on promoCodes/<code>.
     await fb.set(fb.ref(fb.db, `promoCodes/${code}/usedBy/${uid}`), { at: Date.now(), name: profile.name || "Anonymous" });
+    await fb.set(fb.ref(fb.db, `promoCodes/${code}/usedCount`), usedCount + 1);
+    await fb.set(fb.ref(fb.db, `promoCodes/${code}/updatedAt`), Date.now());
   } catch (e) { console.warn("Promo usage write failed", e); }
   playRewardSound();
   showNotification("✓ " + (promo.message || "Promo activated!"), "#4ade80", 4000);
@@ -1774,6 +1791,7 @@ on("nameInput", "input", (e) => {
   profile.name = sanitizePlayerName(e.target.value);
   e.target.value = profile.name;
   saveGame();
+  try { updateActivePlayerPresence(); } catch (_) {}
 });
 function applyProfile() {
   if (profile.avatar && avatarImg) avatarImg.src = profile.avatar;
@@ -1821,6 +1839,9 @@ const plazaMySalesEl = $("plazaMySales");
 const activePlayersListEl = $("activePlayersList");
 const tradeRequestsListEl = $("tradeRequestsList");
 let tradeListening = false;
+let tradeListeningUid = null;
+let tradeUnsubscribers = [];
+let tradePresenceTimer = null;
 let activeTradeTab = "plaza";
 let cachedPlazaListings = [];
 let cachedActivePlayers = [];
@@ -1942,7 +1963,11 @@ function cleanChatText(text) {
   return String(text || "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
 }
 function getChatName() {
-  return sanitizePlayerName(profile.name) || "Anonymous";
+  const profileName = sanitizePlayerName(profile.name);
+  if (profileName) return profileName;
+  if (currentUser && currentUser.displayName) return sanitizePlayerName(currentUser.displayName) || "Anonymous";
+  if (currentUser && currentUser.email) return sanitizePlayerName(currentUser.email.split("@")[0]) || "Anonymous";
+  return "Anonymous";
 }
 function makeChatId() {
   return Date.now() + "_" + Math.random().toString(36).slice(2, 10);
@@ -2063,7 +2088,8 @@ function makeTradeId() {
   return Date.now() + "_" + Math.random().toString(36).slice(2, 10);
 }
 function getPlayerTradeName() {
-  return getChatName();
+  const n = getChatName();
+  return n && n !== "Anonymous" ? n : "Player";
 }
 function setTradeTab(tab) {
   activeTradeTab = tab || "plaza";
@@ -2167,25 +2193,49 @@ async function updateActivePlayerPresence() {
     });
   } catch (e) { console.warn("Presence update failed", e); }
 }
+
+function stopTradeListeners() {
+  tradeUnsubscribers.forEach((unsub) => {
+    try { if (typeof unsub === "function") unsub(); } catch (e) {}
+  });
+  tradeUnsubscribers = [];
+  if (tradePresenceTimer) { clearInterval(tradePresenceTimer); tradePresenceTimer = null; }
+  tradeListening = false;
+  tradeListeningUid = null;
+  cachedPlazaListings = [];
+  cachedActivePlayers = [];
+  cachedTradeRequests = [];
+  cachedTradeSessions = [];
+  activeTradeSessionId = null;
+  const modal = document.getElementById("tradeSessionModal");
+  if (modal) modal.remove();
+}
 function listenTrades() {
-  if (tradeListening || !window.fb || !currentUser) return;
+  if (!window.fb || !currentUser) return;
+  const uid = currentUser.uid;
+  if (tradeListening && tradeListeningUid === uid) return;
+  if (tradeListening && tradeListeningUid !== uid) stopTradeListeners();
+
   tradeListening = true;
+  tradeListeningUid = uid;
   updateActivePlayerPresence();
-  setInterval(updateActivePlayerPresence, 20000);
+  if (!tradePresenceTimer) tradePresenceTimer = setInterval(updateActivePlayerPresence, 20000);
+
+  const addUnsub = (unsub) => { if (typeof unsub === "function") tradeUnsubscribers.push(unsub); };
   try {
-    window.fb.onValue(window.fb.ref(window.fb.db, "tradeListings"), (snap) => {
+    addUnsub(window.fb.onValue(window.fb.ref(window.fb.db, "tradeListings"), (snap) => {
       cachedPlazaListings = Object.values(snap.val() || {}).filter(Boolean).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
       renderTradeUi();
-    });
-    window.fb.onValue(window.fb.ref(window.fb.db, "activePlayers"), (snap) => {
+    }));
+    addUnsub(window.fb.onValue(window.fb.ref(window.fb.db, "activePlayers"), (snap) => {
       cachedActivePlayers = Object.values(snap.val() || {}).filter(Boolean);
       renderTradeUi();
-    });
-    window.fb.onValue(window.fb.ref(window.fb.db, `tradeRequests/${currentUser.uid}`), (snap) => {
+    }));
+    addUnsub(window.fb.onValue(window.fb.ref(window.fb.db, `tradeRequests/${uid}`), (snap) => {
       cachedTradeRequests = Object.values(snap.val() || {}).filter(Boolean).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
       renderTradeUi();
-    });
-    window.fb.onValue(window.fb.ref(window.fb.db, "tradeSessions"), (snap) => {
+    }));
+    addUnsub(window.fb.onValue(window.fb.ref(window.fb.db, "tradeSessions"), (snap) => {
       const allSessions = Object.values(snap.val() || {}).filter(Boolean);
 
       processReturnedTradeSessions(allSessions);
@@ -2204,12 +2254,16 @@ function listenTrades() {
       cachedTradeSessions = allSessions.filter(s =>
         s &&
         s.status === "active" &&
+        currentUser &&
         (s.aUid === currentUser.uid || s.bUid === currentUser.uid) &&
         !(s.completedFor && s.completedFor[currentUser.uid])
       );
       renderTradeUi();
-    });
-  } catch (e) { tradeListening = false; console.warn("Trade listen failed", e); }
+    }));
+  } catch (e) {
+    stopTradeListeners();
+    console.warn("Trade listen failed", e);
+  }
 }
 function openTrades() {
   setTradeTab(activeTradeTab || "plaza");
@@ -3381,7 +3435,13 @@ function initAuth() {
     if (inp) restoreFromCode(inp.value);
   });
   fb.onAuthStateChanged(fb.auth, async (user) => {
+    const previousUid = currentUser && currentUser.uid;
+    if (previousUid && (!user || user.uid !== previousUid)) stopTradeListeners();
     currentUser = user;
+    if (user && !profile.name) {
+      const authName = user.displayName || (user.email ? user.email.split("@")[0] : "");
+      if (authName) profile.name = sanitizePlayerName(authName);
+    }
     renderAuthMenu();
     if (user) {
       listenForAdminGrants();
