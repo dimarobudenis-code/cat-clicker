@@ -376,9 +376,21 @@ function formatNum(n) {
   }
   return Math.floor(n).toString();
 }
+function normalizeNumInputText(str) {
+  return String(str || "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/,/g, "")
+    // Cyrillic suffixes that players often type on Russian keyboard.
+    .replace(/[Кк]/g, "K")
+    .replace(/[Мм]/g, "M")
+    .replace(/[Вв]/g, "B")
+    .replace(/[Тт]/g, "T")
+    .replace(/[Кк][Вв]/g, "Qa");
+}
 function parseNumInput(str) {
   if (!str) return NaN;
-  str = String(str).trim();
+  str = normalizeNumInputText(str);
   const neg = str.startsWith("-");
   if (neg) str = str.slice(1);
   const upper = str.toUpperCase();
@@ -389,7 +401,7 @@ function parseNumInput(str) {
       return isNaN(num) ? NaN : Math.floor((neg ? -1 : 1) * num * v);
     }
   }
-  const num = parseFloat(upper.replace(/,/g, ""));
+  const num = parseFloat(upper);
   return isNaN(num) ? NaN : Math.floor((neg ? -1 : 1) * num);
 }
 function formatTime(sec) {
@@ -806,6 +818,29 @@ function processOfflineProgress(data) {
   if (reward.crystals > 0 || reward.stell > 0) showNotification(`Offline Atomic: +${formatNum(reward.crystals)} amethysts, +${formatNum(reward.stell)} Stell`, "#00ffaa", 3500);
   updateScore();
   return true;
+}
+
+function mergeSaveDataPreferMax(localData, cloudData) {
+  if (!localData || !cloudData) return cloudData || localData;
+  const merged = JSON.parse(JSON.stringify(cloudData));
+  const maxTop = ["score", "crystals", "stell", "clickPower", "autoClicker", "rebirthCount", "rebirthMultiplier"];
+  maxTop.forEach((key) => {
+    const l = Number(localData[key]);
+    const c = Number(cloudData[key]);
+    if (Number.isFinite(l) && (!Number.isFinite(c) || l > c)) merged[key] = l;
+  });
+  merged.stats = { ...(cloudData.stats || {}) };
+  const statKeys = ["totalClicks", "totalFishEarned", "playTimeSec", "goldWaves", "diamondWaves", "itemsBought"];
+  statKeys.forEach((key) => {
+    const l = Number(localData.stats && localData.stats[key]);
+    const c = Number(cloudData.stats && cloudData.stats[key]);
+    merged.stats[key] = Math.max(Number.isFinite(l) ? l : 0, Number.isFinite(c) ? c : 0);
+  });
+  // Keep bigger pet inventory if one side is stale. This reduces losses after bad/offline sync.
+  const lp = localData.petSystem && Array.isArray(localData.petSystem.inventory) ? localData.petSystem.inventory.length : -1;
+  const cp = cloudData.petSystem && Array.isArray(cloudData.petSystem.inventory) ? cloudData.petSystem.inventory.length : -1;
+  if (lp > cp) merged.petSystem = localData.petSystem;
+  return merged;
 }
 
 /* ========== SAVE / LOAD ========== */
@@ -3365,8 +3400,9 @@ function initAuth() {
             const cloudFish = (cloudData.stats && cloudData.stats.totalFishEarned) || 0;
             const localFish = (localData && localData.stats && localData.stats.totalFishEarned) || 0;
             if (cloudFish > localFish) {
-              applySaveData(cloudData);
-              processOfflineProgress(cloudData);
+              const mergedData = mergeSaveDataPreferMax(localData, cloudData);
+              applySaveData(mergedData);
+              processOfflineProgress(mergedData);
             }
           }
         }
