@@ -20,6 +20,9 @@ const PROMO_CODES = {
 /* ========== \u0417\u0412\u0423\u041A\u0418 ========== */
 let audioCtx = null;
 let soundEnabled = true;
+let lobbyMusic = null;
+let cometMusic = null;
+let lobbyMusicUnlocked = false;
 function ensureAudio() {
   if (!audioCtx) {
     try { audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
@@ -28,6 +31,65 @@ function ensureAudio() {
   if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
   return audioCtx;
 }
+function ensureLobbyMusic() {
+  if (!lobbyMusic) {
+    lobbyMusic = new Audio("Lobby.mp3");
+    lobbyMusic.loop = true;
+    lobbyMusic.volume = 0.14;
+    lobbyMusic.preload = "auto";
+  }
+  return lobbyMusic;
+}
+function ensureCometMusic() {
+  if (!cometMusic) {
+    cometMusic = new Audio("CometEvent.mp3");
+    cometMusic.loop = true;
+    cometMusic.volume = 0.22;
+    cometMusic.preload = "auto";
+  }
+  return cometMusic;
+}
+function playLobbyMusic() {
+  if (!settings || settings.musicEnabled === false || cometEventActive) return;
+  if (cometMusic) cometMusic.pause();
+  const music = ensureLobbyMusic();
+  music.play().then(() => { lobbyMusicUnlocked = true; }).catch(() => {});
+}
+function playCometMusic() {
+  if (!settings || settings.musicEnabled === false) return;
+  if (lobbyMusic) lobbyMusic.pause();
+  const music = ensureCometMusic();
+  music.play().then(() => { lobbyMusicUnlocked = true; }).catch(() => {});
+}
+function stopLobbyMusic() {
+  if (lobbyMusic) lobbyMusic.pause();
+  if (cometMusic) cometMusic.pause();
+}
+function duckLobbyMusic(ms = 260) {
+  const music = cometEventActive ? cometMusic : lobbyMusic;
+  if (!music || music.paused || settings.musicEnabled === false) return;
+  const oldVol = music.volume;
+  music.volume = Math.min(oldVol, 0.055);
+  setTimeout(() => {
+    if (music && settings.musicEnabled !== false) music.volume = oldVol;
+  }, ms);
+}
+function updateLobbyMusic() {
+  if (settings.musicEnabled === false) stopLobbyMusic();
+  else if (lobbyMusicUnlocked) {
+    if (cometEventActive) playCometMusic();
+    else playLobbyMusic();
+  }
+}
+function unlockLobbyMusic() {
+  if (settings && settings.musicEnabled !== false && !lobbyMusicUnlocked) {
+    if (cometEventActive) playCometMusic();
+    else playLobbyMusic();
+  }
+}
+["pointerdown", "touchstart", "keydown", "click"].forEach((ev) => {
+  document.addEventListener(ev, unlockLobbyMusic, { passive: true });
+});
 function playUIClick() {
   if (!soundEnabled) return;
   const c = ensureAudio(); if (!c) return;
@@ -43,6 +105,7 @@ function playUIClick() {
 }
 function playCatClick() {
   if (!soundEnabled) return;
+  duckLobbyMusic(180);
   const c = ensureAudio(); if (!c) return;
   const now = c.currentTime;
   const o = c.createOscillator(), g = c.createGain();
@@ -50,7 +113,7 @@ function playCatClick() {
   o.frequency.setValueAtTime(600, now);
   o.frequency.exponentialRampToValueAtTime(900, now + 0.05);
   o.frequency.exponentialRampToValueAtTime(500, now + 0.12);
-  g.gain.setValueAtTime(0.15, now);
+  g.gain.setValueAtTime(0.24, now);
   g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
   o.connect(g); g.connect(c.destination);
   o.start(now); o.stop(now + 0.15);
@@ -58,7 +121,7 @@ function playCatClick() {
   o2.type = "square";
   o2.frequency.setValueAtTime(300, now);
   o2.frequency.exponentialRampToValueAtTime(450, now + 0.05);
-  g2.gain.setValueAtTime(0.06, now);
+  g2.gain.setValueAtTime(0.11, now);
   g2.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
   o2.connect(g2); g2.connect(c.destination);
   o2.start(now); o2.stop(now + 0.1);
@@ -107,7 +170,65 @@ function playWaveSound(type) {
     o.start(t); o.stop(t + 0.15);
   }
 }
+function playNoiseBurst(c, startTime, duration, gainValue, filterFreq = 1800) {
+  const length = Math.max(1, Math.floor(c.sampleRate * duration));
+  const buffer = c.createBuffer(1, length, c.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
+  const src = c.createBufferSource();
+  const filter = c.createBiquadFilter();
+  const gain = c.createGain();
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(filterFreq, startTime);
+  filter.Q.setValueAtTime(8, startTime);
+  gain.gain.setValueAtTime(gainValue, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  src.buffer = buffer;
+  src.connect(filter); filter.connect(gain); gain.connect(c.destination);
+  src.start(startTime); src.stop(startTime + duration);
+}
+function playEggCrackSound(intensity = 1) {
+  if (!soundEnabled) return;
+  duckLobbyMusic(420);
+  const c = ensureAudio(); if (!c) return;
+  const now = c.currentTime + 0.005;
+  const power = Math.max(1, intensity || 1);
+  playNoiseBurst(c, now, 0.055, 0.42 * power, 2200);
+  playNoiseBurst(c, now + 0.035, 0.045, 0.28 * power, 1200);
+  for (let i = 0; i < 4; i++) {
+    const t = now + i * 0.026;
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = i % 2 ? "sawtooth" : "square";
+    osc.frequency.setValueAtTime(900 + Math.random() * 1900, t);
+    osc.frequency.exponentialRampToValueAtTime(130 + Math.random() * 180, t + 0.055);
+    gain.gain.setValueAtTime(0.22 * power, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    osc.connect(gain); gain.connect(c.destination);
+    osc.start(t); osc.stop(t + 0.075);
+  }
+}
+function playEggRevealSound(rarity = "Common") {
+  if (!soundEnabled) return;
+  duckLobbyMusic(750);
+  const c = ensureAudio(); if (!c) return;
+  const now = c.currentTime + 0.005;
+  const rarityBoost = rarity === "Legendary" ? 2.0 : (rarity === "Epic" ? 1.6 : (rarity === "Rare" ? 1.3 : 1.15));
+  const notes = rarity === "Legendary" ? [523, 659, 784, 1046, 1318] : [440, 554, 659, 880];
+  notes.forEach((freq, i) => {
+    const t = now + i * 0.075;
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0.24 * rarityBoost, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+    osc.connect(gain); gain.connect(c.destination);
+    osc.start(t); osc.stop(t + 0.36);
+  });
+}
 document.addEventListener("click", (e) => {
+  unlockLobbyMusic();
   if (e.target.closest(".ui-click")) playUIClick();
 }, true);
 
@@ -188,26 +309,37 @@ resizeSpace();
 drawParticles();
 
 /* ========== \u0424\u041E\u0420 \u041C\u0410\u0422\u0418\u0420 \u041E\u0412\u0410\u041D\u0418\u0415 ========== */
+const NUM_SUFFIXES = [
+  { v: 1e90, s: "Nv" }, { v: 1e87, s: "Ov" }, { v: 1e84, s: "Spv" }, { v: 1e81, s: "Sxv" }, { v: 1e78, s: "Qiv" },
+  { v: 1e75, s: "Qav" }, { v: 1e72, s: "Tv" }, { v: 1e69, s: "Dv" }, { v: 1e66, s: "Uv" }, { v: 1e63, s: "Vg" },
+  { v: 1e60, s: "Nod" }, { v: 1e57, s: "Ocd" }, { v: 1e54, s: "Spd" }, { v: 1e51, s: "Sxd" }, { v: 1e48, s: "Qid" },
+  { v: 1e45, s: "Qad" }, { v: 1e42, s: "Td" }, { v: 1e39, s: "Dd" }, { v: 1e36, s: "Ud" }, { v: 1e33, s: "Dc" },
+  { v: 1e30, s: "No" }, { v: 1e27, s: "Oc" }, { v: 1e24, s: "Sp" }, { v: 1e21, s: "Sx" }, { v: 1e18, s: "Qi" },
+  { v: 1e15, s: "Qa" }, { v: 1e12, s: "T" }, { v: 1e9, s: "B" }, { v: 1e6, s: "M" }, { v: 1e3, s: "K" }
+];
 function formatNum(n) {
+  n = Number(n) || 0;
   if (n < 0) return "-" + formatNum(-n);
-  if (n >= 1e15) return (n / 1e15).toFixed(1) + "Qa";
-  if (n >= 1e12) return (n / 1e12).toFixed(1) + "T";
-  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  for (const item of NUM_SUFFIXES) {
+    if (n >= item.v) return (n / item.v).toFixed(2).replace(/\.?0+$/, "") + item.s;
+  }
   return Math.floor(n).toString();
 }
 function parseNumInput(str) {
   if (!str) return NaN;
-  str = str.trim().toUpperCase();
-  const suffixes = { K: 1e3, M: 1e6, B: 1e9, T: 1e12, QA: 1e15 };
-  for (const [s, mult] of Object.entries(suffixes)) {
-    if (str.endsWith(s)) {
-      const num = parseFloat(str.slice(0, -s.length));
-      return isNaN(num) ? NaN : Math.floor(num * mult);
+  str = String(str).trim();
+  const neg = str.startsWith("-");
+  if (neg) str = str.slice(1);
+  const upper = str.toUpperCase();
+  const sorted = [...NUM_SUFFIXES].sort((a, b) => b.s.length - a.s.length);
+  for (const { s, v } of sorted) {
+    if (upper.endsWith(s.toUpperCase())) {
+      const num = parseFloat(upper.slice(0, -s.length));
+      return isNaN(num) ? NaN : Math.floor((neg ? -1 : 1) * num * v);
     }
   }
-  return parseInt(str);
+  const num = parseFloat(upper.replace(/,/g, ""));
+  return isNaN(num) ? NaN : Math.floor((neg ? -1 : 1) * num);
 }
 function formatTime(sec) {
   const h = Math.floor(sec / 3600);
@@ -238,6 +370,7 @@ function formatChatTime(ts) {
 /* ========== \u0414\u0410\u041D\u041D\u042B\u0415 ========== */
 let score = 0;
 let crystals = 0;
+let stell = 0;
 let clickPower = 1;
 let autoClicker = 0;
 let goldClicks = 0;
@@ -247,6 +380,8 @@ const MAX_FISH = 3;
 let waveActive = false;
 let waveMultiplier = 1;
 let activeWaveType = null;
+let activeWaveToken = 0;
+let activeWaveTimer = null;
 const GOLD_REQUIRED = 100;
 const DIAMOND_REQUIRED = 1000;
 let stats = {
@@ -255,7 +390,7 @@ let stats = {
 };
 let profile = { name: "", avatar: null };
 let playerId = null;
-let settings = { glowEnabled: true, soundEnabled: true };
+let settings = { glowEnabled: true, soundEnabled: true, musicEnabled: true };
 let currentUser = null;
 let recoveryCode = null;
 let lastPushedFish = -1;
@@ -270,6 +405,7 @@ let rebirthCount = 0;
 let rebirthMultiplier = 1;
 let potions = { luck: 0, speed: 0, fish: 0 };
 let vipActive = false;
+let imperialActive = false;
 let currentShopTab = "click";
 let lastClickTime = 0;
 const CLICK_DELAY = 50;
@@ -290,9 +426,23 @@ let lastResumeHandledAt = 0;
 let chatListening = false;
 let chatLastSendAt = 0;
 let cachedChatMessages = [];
+const COMET_COOLDOWN_MS = 10 * 60 * 1000;
+const COMET_EVENT_MS = 5 * 60 * 1000;
+const COMET_CYCLE_MS = COMET_COOLDOWN_MS + COMET_EVENT_MS;
+let cometCycleStartedAt = Date.now();
+let cometEventActive = false;
+let cometSpawnTimer = null;
+let activeComets = 0;
+const MAX_ACTIVE_COMETS = 1;
 
 const scoreText = $("scoreText");
 const crystalText = $("crystalText");
+const stellText = $("stellText");
+const cometTimer = $("cometTimer");
+const cometEventBtn = $("cometEventBtn");
+const buyStellEgg1Btn = $("buyStellEgg1");
+const buyStellEgg10Btn = $("buyStellEgg10");
+const buyStellEgg100Btn = $("buyStellEgg100");
 const scoreBar = $("scoreBar");
 const catBtn = $("catBtn");
 const waveGlow = $("waveGlow");
@@ -309,30 +459,19 @@ const crystalBar = $("crystalBar");
 const potionStatusBar = $("potionStatusBar");
 
 /* ========== \u041C\u0410\u0413\u0410\u0417\u0418\u041D \u0420 \u042B\u0411\u042B ========== */
-const shopItemsData = [
-  { name: "Double Fish", desc: "+1 fish per click", basePrice: 10, owned: 0, category: "click", apply: () => clickPower += 1 },
-  { name: "Lucky Paw", desc: "+5 fish per click", basePrice: 200, owned: 0, category: "click", apply: () => clickPower += 5 },
-  { name: "Golden Cat", desc: "+25 fish per click", basePrice: 1000, owned: 0, category: "click", apply: () => clickPower += 25 },
-  { name: "Diamond Paw", desc: "+100 fish per click", basePrice: 10000, owned: 0, category: "click", apply: () => clickPower += 100 },
-  { name: "Emerald Claw", desc: "+500 fish per click", basePrice: 100000, owned: 0, category: "click", apply: () => clickPower += 500 },
-  { name: "Cosmic Touch", desc: "+2K fish per click", basePrice: 1000000, owned: 0, category: "click", apply: () => clickPower += 2000 },
-  { name: "Godlike Tap", desc: "+10K fish per click", basePrice: 50000000, owned: 0, category: "click", apply: () => clickPower += 10000 },
-  { name: "Infinity Finger", desc: "+50K fish per click", basePrice: 500000000, owned: 0, category: "click", apply: () => clickPower += 50000 },
-  { name: "Universe Splitter", desc: "+200K fish per click", basePrice: 5000000000, owned: 0, category: "click", apply: () => clickPower += 200000 },
-  { name: "Multiverse Cat", desc: "+1M fish per click", basePrice: 50000000000, owned: 0, category: "click", apply: () => clickPower += 1000000 },
-
-  { name: "Auto Fisher", desc: "+1 fish/sec", basePrice: 50, owned: 0, category: "auto", apply: () => autoClicker += 1 },
-  { name: "Fish Farm", desc: "+10 fish/sec", basePrice: 5000, owned: 0, category: "auto", apply: () => autoClicker += 10 },
-  { name: "Fish Factory", desc: "+50 fish/sec", basePrice: 50000, owned: 0, category: "auto", apply: () => autoClicker += 50 },
-  { name: "Fish Mine", desc: "+200 fish/sec", basePrice: 500000, owned: 0, category: "auto", apply: () => autoClicker += 200 },
-  { name: "Fish Dimension", desc: "+1K fish/sec", basePrice: 5000000, owned: 0, category: "auto", apply: () => autoClicker += 1000 },
-  { name: "Time Warp", desc: "+5K fish/sec", basePrice: 50000000, owned: 0, category: "auto", apply: () => autoClicker += 5000 },
-  { name: "Galaxy Net", desc: "+25K fish/sec", basePrice: 500000000, owned: 0, category: "auto", apply: () => autoClicker += 25000 },
-  { name: "Universe Harvester", desc: "+100K fish/sec", basePrice: 5000000000, owned: 0, category: "auto", apply: () => autoClicker += 100000 },
-  { name: "Void Collector", desc: "+500K fish/sec", basePrice: 50000000000, owned: 0, category: "auto", apply: () => autoClicker += 500000 },
-  { name: "Infinity Stream", desc: "+2M fish/sec", basePrice: 500000000000, owned: 0, category: "auto", apply: () => autoClicker += 2000000 }
-];
-
+const shopItemsData = (window.CAT_CLICKER_UPGRADES && Array.isArray(window.CAT_CLICKER_UPGRADES)
+  ? window.CAT_CLICKER_UPGRADES
+  : [
+    { name: "Double Fish", desc: "+1 fish per click", basePrice: 10, owned: 0, category: "click", power: 1 },
+    { name: "Auto Fisher", desc: "+1 fish/sec", basePrice: 50, owned: 0, category: "auto", power: 1 }
+  ]
+).map((item) => ({ owned: 0, ...item }));
+function applyUpgradeItem(item) {
+  if (item && typeof item.apply === "function") { item.apply(); return; }
+  const power = Number(item && item.power) || 0;
+  if (item.category === "click") clickPower += power;
+  else if (item.category === "auto") autoClicker += power;
+}
 function getPrice(item) {
   return Math.floor(item.basePrice * Math.pow(1.5, item.owned));
 }
@@ -363,22 +502,41 @@ function getPetLuckMult() {
 function getPetPassiveCrystalsPerMinute() {
   return getPetApi()?.getPassiveCrystalsPerMinute?.() || 0;
 }
+function getPetPassiveStellPerMinute() {
+  return getPetApi()?.getPassiveStellPerMinute?.() || 0;
+}
+function getAtomicFishMult() {
+  return getPetApi()?.getAtomicFishMultiplier?.() || 1;
+}
+function getAtomicAutoSpeedMult() {
+  return getPetApi()?.getAtomicAutoSpeedMultiplier?.() || 1;
+}
 function getVipFishMult() {
   return vipActive ? 10 : 1;
+}
+function getImperialFishMult() {
+  // Imperial fish boost comes from the Imperial Cat pet itself.
+  // Keep subscription multiplier at x1 to avoid accidental x10000 stacking.
+  return 1;
 }
 function grantVipPetIfPossible() {
   try {
     if (vipActive && getPetApi()?.grantVipPet) getPetApi().grantVipPet();
   } catch (e) { console.warn("VIP pet grant failed", e); }
 }
+function grantImperialPetIfPossible() {
+  try {
+    if (imperialActive && getPetApi()?.grantImperialPet) getPetApi().grantImperialPet();
+  } catch (e) { console.warn("Imperial pet grant failed", e); }
+}
 function getEggsOpenedCount() {
   return getPetApi()?.getEggsOpened?.() || 0;
 }
 function getClickIncome() {
-  return clickPower * waveMultiplier * rebirthMultiplier * getFishPotionMult() * getVipFishMult() * getPetFishMult();
+  return clickPower * waveMultiplier * rebirthMultiplier * getFishPotionMult() * getVipFishMult() * getImperialFishMult() * getPetFishMult() * getAtomicFishMult();
 }
 function getAutoIncome() {
-  return autoClicker * waveMultiplier * rebirthMultiplier * getFishPotionMult() * getVipFishMult() * getSpeedPotionMult() * getPetFishMult() * getPetAutoSpeedMult();
+  return autoClicker * waveMultiplier * rebirthMultiplier * getFishPotionMult() * getVipFishMult() * getImperialFishMult() * getSpeedPotionMult() * getPetFishMult() * getPetAutoSpeedMult() * getAtomicAutoSpeedMult();
 }
 
 function doRebirth() {
@@ -411,6 +569,7 @@ const potionItemsData = [
 ];
 
 const VIP_PRICE = 1000;
+const IMPERIAL_PRICE = 1000000;
 function buyVipMembership() {
   if (vipActive) return;
   if (crystals < VIP_PRICE) {
@@ -426,6 +585,23 @@ function buyVipMembership() {
   saveGame();
   if (currentUser) pushToLeaderboard();
   showNotification("⭐ VIP ACTIVATED!\nx10 fish forever\n+ unique Gold Pegasus!", "#ffd700", 4500);
+}
+
+function buyImperialMembership() {
+  if (imperialActive) return;
+  if (crystals < IMPERIAL_PRICE) {
+    showNotification("Need 1M amethysts for Imperial!", "#ff4444", 2500);
+    return;
+  }
+  crystals -= IMPERIAL_PRICE;
+  imperialActive = true;
+  grantImperialPetIfPossible();
+  playRewardSound();
+  updateScore();
+  updateIncome();
+  saveGame();
+  if (currentUser) pushToLeaderboard();
+  showNotification("👑 IMPERIAL ACTIVATED!\nx100 fish\n+ Imperial Cat!", "#ff4444", 5000);
 }
 
 function renderPotionShop() {
@@ -446,6 +622,21 @@ function renderPotionShop() {
   `;
   if (vipCanBuy) vipDiv.addEventListener("click", buyVipMembership);
   el.appendChild(vipDiv);
+
+  const imperialCanBuy = crystals >= IMPERIAL_PRICE && !imperialActive;
+  const imperialDiv = document.createElement("div");
+  imperialDiv.className = "potion-item imperial-item" + (imperialActive ? " active-potion" : "") + (imperialCanBuy ? "" : " locked");
+  imperialDiv.innerHTML = `
+    <div class="potion-icon"><img src="ImperialCat.png" alt="Imperial" /></div>
+    <div class="potion-info">
+      <div class="potion-name">👑 IMPERIAL</div>
+      <div class="potion-desc">Permanent x100 fish • Imperial Cat • red name effects</div>
+      <div class="potion-timer">${imperialActive ? "ACTIVE FOREVER" : "Imperial Cat: x100 fish, x10 luck, +50 amethyst/min"}</div>
+    </div>
+    <div class="potion-price"><img src="CrystalIcon.png" alt="" />${imperialActive ? "OWNED" : formatNum(IMPERIAL_PRICE)}</div>
+  `;
+  if (imperialCanBuy) imperialDiv.addEventListener("click", buyImperialMembership);
+  el.appendChild(imperialDiv);
 
   for (const potion of potionItemsData) {
     const active = Date.now() < potions[potion.type];
@@ -534,32 +725,45 @@ if (offlineCollectBtn) {
 function getOfflineMultiplier(data, now = Date.now()) {
   return (data.rebirthMultiplier || 1)
     * (data.vipActive ? 10 : 1)
+    * (data.imperialActive ? 100 : 1)
     * ((now < (data.potions?.fish || 0)) ? 5 : 1)
     * ((now < (data.potions?.speed || 0)) ? 2 : 1);
 }
+function saveHasAtomicPet(data) {
+  return Array.isArray(data?.petSystem?.inventory) && data.petSystem.inventory.some(p => p && p.key === "atomicsupercat");
+}
 function getOfflineRewardData(data, now = Date.now()) {
-  if (!data || !data.lastOnline) return { diffSec: 0, offlineSec: 0, earned: 0 };
+  if (!data || !data.lastOnline) return { diffSec: 0, offlineSec: 0, earned: 0, crystals: 0, stell: 0 };
   const diffSec = Math.floor((now - data.lastOnline) / 1000);
-  if (diffSec < OFFLINE_MIN_SECONDS) return { diffSec, offlineSec: 0, earned: 0 };
+  if (diffSec < OFFLINE_MIN_SECONDS) return { diffSec, offlineSec: 0, earned: 0, crystals: 0, stell: 0 };
   const offlineSec = Math.min(diffSec, OFFLINE_MAX_SECONDS);
   const earned = Math.floor((data.autoClicker || 0) * offlineSec * getOfflineMultiplier(data, now) * OFFLINE_EFFICIENCY);
-  return { diffSec, offlineSec, earned };
+  const hasAtomic = saveHasAtomicPet(data);
+  const offlineMinutes = Math.floor(offlineSec / 60);
+  const offlineCrystals = hasAtomic ? offlineMinutes * 500 : 0;
+  const offlineStell = hasAtomic ? offlineMinutes * 100 : 0;
+  return { diffSec, offlineSec, earned, crystals: offlineCrystals, stell: offlineStell };
 }
 function processOfflineProgress(data) {
   const reward = getOfflineRewardData(data);
-  if (reward.earned <= 0) return false;
+  if (reward.earned <= 0 && reward.crystals <= 0 && reward.stell <= 0) return false;
   pendingOfflineFish += reward.earned;
+  if (reward.crystals > 0) crystals += reward.crystals;
+  if (reward.stell > 0) stell += reward.stell;
   openOfflinePopup(reward.offlineSec, pendingOfflineFish);
+  if (reward.crystals > 0 || reward.stell > 0) showNotification(`Offline Atomic: +${formatNum(reward.crystals)} amethysts, +${formatNum(reward.stell)} Stell`, "#00ffaa", 3500);
+  updateScore();
   return true;
 }
 
 /* ========== SAVE / LOAD ========== */
 function buildSaveData(lastOnlineOverride = Date.now()) {
   return {
-    score, crystals, clickPower, autoClicker, goldClicks, diamondClicks,
-    rebirthCount, rebirthMultiplier, potions, vipActive,
+    score, crystals, stell, clickPower, autoClicker, goldClicks, diamondClicks,
+    rebirthCount, rebirthMultiplier, potions, vipActive, imperialActive,
     shopOwned: shopItemsData.map(i => i.owned),
-    stats, profile, playerId, settings, recoveryCode, usedPromoCodes, localAdminGranted,
+    petSystem: window.petSystemApi?.getSaveData?.() || undefined,
+    stats, profile, playerId, settings, usedPromoCodes, localAdminGranted, cometCycleStartedAt,
     lastOnline: lastOnlineOverride
   };
 }
@@ -584,6 +788,7 @@ function applySaveData(data) {
   if (!data) return;
   score = data.score || 0;
   crystals = data.crystals || 0;
+  stell = data.stell || 0;
   clickPower = data.clickPower || 1;
   autoClicker = data.autoClicker || 0;
   goldClicks = data.goldClicks || 0;
@@ -592,6 +797,7 @@ function applySaveData(data) {
   if (data.rebirthMultiplier !== undefined) rebirthMultiplier = data.rebirthMultiplier;
   if (data.potions) potions = data.potions;
   vipActive = !!data.vipActive;
+  imperialActive = !!data.imperialActive;
   if (data.shopOwned) {
     data.shopOwned.forEach((count, i) => {
       if (shopItemsData[i]) shopItemsData[i].owned = count;
@@ -602,9 +808,10 @@ function applySaveData(data) {
   if (data.playerId) playerId = data.playerId;
   ensurePlayerId();
   if (data.settings) settings = { ...settings, ...data.settings };
-  if (data.recoveryCode !== undefined) recoveryCode = data.recoveryCode;
+  recoveryCode = null;
   if (data.usedPromoCodes) usedPromoCodes = data.usedPromoCodes;
   localAdminGranted = !!data.localAdminGranted;
+  if (data.cometCycleStartedAt) cometCycleStartedAt = data.cometCycleStartedAt;
   soundEnabled = settings.soundEnabled !== false;
   updateScore();
   updateIncome();
@@ -613,7 +820,9 @@ function applySaveData(data) {
   applySettings();
   updateRecoveryDisplay();
   updatePotionStatusBar();
+  try { if (data.petSystem && window.petSystemApi?.applySaveData) window.petSystemApi.applySaveData(data.petSystem); } catch (e) {}
   grantVipPetIfPossible();
+  grantImperialPetIfPossible();
 }
 function saveGame(lastOnlineOverride = Date.now()) {
   persistSaveData(buildSaveData(lastOnlineOverride));
@@ -655,6 +864,7 @@ function getLeaderboardSignature() {
     crystals,
     getEggsOpenedCount(),
     vipActive ? 1 : 0,
+    imperialActive ? 1 : 0,
     playerId || "",
     profile.name || "",
     profile.avatar ? 1 : 0
@@ -668,8 +878,10 @@ setInterval(() => {
 }, 1000);
 setInterval(() => {
   const passiveCrystals = getPetPassiveCrystalsPerMinute();
-  if (passiveCrystals > 0) {
+  const passiveStell = getPetPassiveStellPerMinute();
+  if (passiveCrystals > 0 || passiveStell > 0) {
     crystals += passiveCrystals;
+    stell += passiveStell;
     updateScore();
     saveGame();
   }
@@ -681,6 +893,9 @@ setInterval(() => {
     pushToLeaderboard();
   }
 }, 10000);
+setInterval(() => {
+  if (currentUser) { try { updateActivePlayerPresence(); } catch (e) {} }
+}, 30000);
 
 /* ========== INCOME ========== */
 function updateIncome() {
@@ -703,7 +918,13 @@ if (catBtn) {
     for (let i = 0; i < fishToSpawn; i++) setTimeout(() => spawnFlyingFish(), i * 60);
     score += totalFish;
     stats.totalClicks++;
+    try { getPetApi()?.onAtomicClick?.(); } catch (e) {}
     stats.totalFishEarned += totalFish;
+    if (activeWaveType === "amethyst" && Math.random() < 0.10) {
+      crystals += 1;
+      spawnFlyingCrystal();
+      showNotification("+1 Amethyst!", "#c084fc", 900);
+    }
     if (!waveActive) { goldClicks++; diamondClicks++; checkWaves(); }
     updateScore();
     updateWaveBars();
@@ -713,10 +934,191 @@ if (catBtn) {
 function updateScore() {
   if (scoreText) scoreText.textContent = formatNum(score);
   if (crystalText) crystalText.textContent = formatNum(crystals);
+  if (stellText) stellText.textContent = formatNum(stell);
   updateIncome();
   updatePotionStatusBar();
   renderShop();
 }
+
+/* ========== COMET EVENT ========== */
+function getCometPhase(now = Date.now()) {
+  if (!cometCycleStartedAt) cometCycleStartedAt = now;
+  let elapsed = (now - cometCycleStartedAt) % COMET_CYCLE_MS;
+  if (elapsed < 0) elapsed += COMET_CYCLE_MS;
+  if (elapsed < COMET_COOLDOWN_MS) {
+    return { active: false, remaining: COMET_COOLDOWN_MS - elapsed, elapsed };
+  }
+  return { active: true, remaining: COMET_CYCLE_MS - elapsed, elapsed };
+}
+function formatCometTimer(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+function updateCometEvent() {
+  const phase = getCometPhase();
+  if (cometTimer) {
+    cometTimer.textContent = phase.active ? `☄ EVENT ${formatCometTimer(phase.remaining)}` : `☄ ${formatCometTimer(phase.remaining)}`;
+    cometTimer.classList.toggle("active", phase.active);
+  }
+  if (cometEventBtn) cometEventBtn.classList.toggle("active", phase.active);
+  if (phase.active !== cometEventActive) {
+    cometEventActive = phase.active;
+    if (phase.active) startCometEventEffects();
+    else stopCometEventEffects();
+    updateLobbyMusic();
+  }
+}
+function startCometEventEffects() {
+  showNotification("☄ COMET EVENT STARTED!\nClick comets to earn Stell!", "#c084fc", 3500);
+  if (settings.musicEnabled !== false) playCometMusic();
+  if (cometSpawnTimer) clearInterval(cometSpawnTimer);
+  cometSpawnTimer = setInterval(() => {
+    if (cometEventActive) spawnFallingComet();
+  }, 5000);
+  setTimeout(spawnFallingComet, 400);
+}
+function stopCometEventEffects() {
+  if (cometSpawnTimer) { clearInterval(cometSpawnTimer); cometSpawnTimer = null; }
+  showNotification("☄ Comet event ended!", "#c084fc", 2500);
+  if (cometMusic) cometMusic.pause();
+  if (settings.musicEnabled !== false) playLobbyMusic();
+}
+function forceStartCometEvent() {
+  cometCycleStartedAt = Date.now() - COMET_COOLDOWN_MS;
+  saveGame();
+  updateCometEvent();
+}
+function setCometImageWithFallback(img) {
+  const sources = ["Comet.png", "comet.png", "Comet.PNG"];
+  let idx = 0;
+  img.onerror = () => {
+    idx++;
+    if (idx < sources.length) img.src = sources[idx];
+    else {
+      img.onerror = null;
+      img.removeAttribute("src");
+      img.classList.add("comet-fallback");
+      img.alt = "☄";
+    }
+  };
+  img.src = sources[0];
+}
+function spawnFallingComet() {
+  if (!cometEventActive || activeComets >= MAX_ACTIVE_COMETS) return;
+  activeComets++;
+  const comet = document.createElement("img");
+  setCometImageWithFallback(comet);
+  const isFast = Math.random() < 0.25;
+  comet.className = "falling-comet" + (isFast ? " fast-comet" : "");
+  comet.dataset.rewardMult = isFast ? "2" : "1";
+  const size = isFast ? (34 + Math.random() * 44) : (42 + Math.random() * 92);
+  const startX = Math.random() * (window.innerWidth - size);
+  const endX = startX + (Math.random() - 0.5) * (isFast ? 380 : 220);
+  const startY = -size - 30;
+  const endY = window.innerHeight + size + 40;
+  const duration = isFast ? (1800 + Math.random() * 1400) : (5200 + Math.random() * 4200);
+  comet.style.setProperty("--size", `${size}px`);
+  comet.style.setProperty("--spin", `${isFast ? 1.8 + Math.random() * 1.8 : 5 + Math.random() * 8}s`);
+  comet.style.left = startX + "px";
+  comet.style.top = startY + "px";
+  document.body.appendChild(comet);
+  let collected = false;
+  comet.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (collected) return;
+    collected = true;
+    collectComet(comet);
+  });
+  const start = performance.now();
+  function anim(now) {
+    if (collected || !comet.parentNode) return;
+    const t = Math.min((now - start) / duration, 1);
+    comet.style.left = (startX + (endX - startX) * t) + "px";
+    comet.style.top = (startY + (endY - startY) * t) + "px";
+    comet.style.opacity = String(1 - Math.max(0, t - 0.82) / 0.18);
+    if (t < 1) requestAnimationFrame(anim);
+    else { comet.remove(); activeComets = Math.max(0, activeComets - 1); }
+  }
+  requestAnimationFrame(anim);
+  if (getPetApi()?.hasAtomicPet?.()) {
+    setTimeout(() => {
+      if (!collected && comet.parentNode && cometEventActive) {
+        collected = true;
+        collectComet(comet);
+      }
+    }, isFast ? 450 : 900);
+  }
+}
+function collectComet(comet) {
+  const rect = comet.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  comet.remove();
+  activeComets = Math.max(0, activeComets - 1);
+  const mult = Number(comet.dataset.rewardMult || 1) || 1;
+  const gained = (1 + Math.floor(Math.random() * 10)) * mult;
+  stell += gained;
+  updateScore();
+  saveGame();
+  showNotification(`+${gained} Stell`, "#ff9dfb", 1200);
+  shakeCometScreen();
+  spawnCometExplosion(x, y);
+  playRewardSound();
+}
+function shakeCometScreen() {
+  document.body.classList.remove("comet-shake");
+  void document.body.offsetWidth;
+  document.body.classList.add("comet-shake");
+  setTimeout(() => document.body.classList.remove("comet-shake"), 320);
+}
+function spawnCometExplosion(x, y) {
+  const colors = ["#ff3b00", "#ff7a00", "#ffd24a", "#ff004c", "#b300ff"];
+  for (let i = 0; i < 24; i++) {
+    const p = document.createElement("span");
+    p.className = "comet-fire-particle";
+    const a = Math.random() * Math.PI * 2;
+    const d = 35 + Math.random() * 110;
+    p.style.left = x + "px";
+    p.style.top = y + "px";
+    p.style.color = colors[Math.floor(Math.random() * colors.length)];
+    p.style.setProperty("--color", p.style.color);
+    p.style.setProperty("--dx", `${Math.cos(a) * d}px`);
+    p.style.setProperty("--dy", `${Math.sin(a) * d}px`);
+    document.body.appendChild(p);
+    p.addEventListener("animationend", () => p.remove(), { once: true });
+  }
+}
+setInterval(updateCometEvent, 1000);
+
+const STELL_EGG_COST = 100;
+function buyStellEgg(count = 1) {
+  const amount = Math.max(1, Math.min(100, parseInt(count, 10) || 1));
+  const totalCost = STELL_EGG_COST * amount;
+  if (!window.petSystemApi || typeof window.petSystemApi.openStellEgg !== "function") {
+    alert("Pet system is not ready yet.");
+    return;
+  }
+  if (stell < totalCost) {
+    showNotification(`Need ${formatNum(totalCost)} Stell!`, "#ff66ff", 2200);
+    return;
+  }
+  stell -= totalCost;
+  updateScore();
+  const res = window.petSystemApi.openStellEgg(amount);
+  if (!res || !res.ok) {
+    stell += totalCost;
+    updateScore();
+    alert(res?.error || "Cannot open Stell Egg");
+    return;
+  }
+  saveGame();
+}
+if (buyStellEgg1Btn) buyStellEgg1Btn.addEventListener("click", () => buyStellEgg(1));
+if (buyStellEgg10Btn) buyStellEgg10Btn.addEventListener("click", () => buyStellEgg(10));
+if (buyStellEgg100Btn) buyStellEgg100Btn.addEventListener("click", () => buyStellEgg(100));
 
 /* ========== \u0412\u041E\u041B\u041D\u042B ========== */
 function updateWaveBars() {
@@ -727,7 +1129,25 @@ function checkWaves() {
   if (diamondClicks >= DIAMOND_REQUIRED) { diamondClicks = 0; startWave("diamond", 5, 10); }
   else if (goldClicks >= GOLD_REQUIRED) { goldClicks = 0; startWave("gold", 2, 5); }
 }
+function clearWaveVisuals() {
+  if (waveGlow) waveGlow.className = "wave-glow";
+  if (multBadge) multBadge.className = "multiplier-badge";
+  if (goldBg) goldBg.classList.remove("active-wave");
+  if (diamondBg) diamondBg.classList.remove("active-wave");
+  if (goldTimer) goldTimer.textContent = "";
+  if (diamondTimer) diamondTimer.textContent = "";
+}
 function startWave(type, multiplier, duration) {
+  // Wave bug fix: every wave has a token. Old timers from previous/overlapped waves
+  // cannot reset the current multiplier anymore.
+  if (activeWaveTimer) {
+    clearInterval(activeWaveTimer);
+    clearTimeout(activeWaveTimer);
+    activeWaveTimer = null;
+  }
+  clearWaveVisuals();
+  const token = ++activeWaveToken;
+
   waveActive = true;
   waveMultiplier = multiplier;
   activeWaveType = type;
@@ -736,7 +1156,9 @@ function startWave(type, multiplier, duration) {
   playWaveSound(type);
   if (settings.glowEnabled && waveGlow) waveGlow.className = "wave-glow active " + type;
   if (multBadge) {
-    multBadge.textContent = `x${multiplier} ${type==="gold"?"GOLDEN":(type==="diamond"?"DIAMOND":(type==="rainbow"?"RAINBOW":"AMETHYST"))} WAVE`;
+    multBadge.textContent = type === "amethyst"
+      ? "AMETHYST EVENT • 10%/click"
+      : `x${multiplier} ${type==="gold"?"GOLDEN":(type==="diamond"?"DIAMOND":(type==="rainbow"?"RAINBOW":"AMETHYST"))} WAVE`;
     let cls = "multiplier-badge active";
     if (type === "diamond") cls += " diamond-text";
     else if (type === "rainbow") cls += " rainbow-text";
@@ -750,29 +1172,30 @@ function startWave(type, multiplier, duration) {
     let remaining = duration;
     if (timerEl) timerEl.textContent = remaining + "s";
     updateIncome();
-    const interval = setInterval(() => {
+    activeWaveTimer = setInterval(() => {
+      if (token !== activeWaveToken) return;
       remaining--;
       if (timerEl) timerEl.textContent = remaining + "s";
-      if (remaining <= 0) { clearInterval(interval); endWave(type); }
+      if (remaining <= 0) endWave(type, token);
     }, 1000);
   } else {
     updateIncome();
-    setTimeout(() => endWave(type), duration * 1000);
+    activeWaveTimer = setTimeout(() => endWave(type, token), duration * 1000);
   }
   updateWaveBars();
 }
-function endWave(type) {
+function endWave(type, token = null) {
+  if (token !== null && token !== activeWaveToken) return;
+  activeWaveToken++;
+  if (activeWaveTimer) {
+    clearInterval(activeWaveTimer);
+    clearTimeout(activeWaveTimer);
+    activeWaveTimer = null;
+  }
   waveActive = false;
   waveMultiplier = 1;
   activeWaveType = null;
-  if (waveGlow) waveGlow.className = "wave-glow";
-  if (multBadge) multBadge.className = "multiplier-badge";
-  if (type === "gold" || type === "diamond") {
-    const bg = type === "gold" ? goldBg : diamondBg;
-    if (bg) bg.classList.remove("active-wave");
-    const timerEl = type === "gold" ? goldTimer : diamondTimer;
-    if (timerEl) timerEl.textContent = "";
-  }
+  clearWaveVisuals();
   updateIncome();
   updateWaveBars();
 }
@@ -885,6 +1308,8 @@ const potionMenu = $("potionMenu");
 const settingsMenu = $("settingsMenu");
 const profileMenu = $("profileMenu");
 const chatMenu = $("chatMenu");
+const tradeMenu = $("tradeMenu");
+const cometEventMenu = $("cometEventMenu");
 const topMenu = $("topMenu");
 const adminMenu = $("adminMenu");
 
@@ -897,11 +1322,13 @@ function openMenu(menu) {
   if (menu === potionMenu) renderPotionShop();
   if (menu === profileMenu) renderStats();
   if (menu === chatMenu) openChat();
+  if (menu === tradeMenu) openTrades();
+  if (menu === cometEventMenu) updateScore();
   if (menu === topMenu) loadTop();
 }
 function closeAllMenus() {
   if (overlay) overlay.classList.remove("active");
-  [shopMenu, potionMenu, settingsMenu, profileMenu, chatMenu, topMenu, adminMenu].forEach(m => {
+  [shopMenu, potionMenu, settingsMenu, profileMenu, chatMenu, tradeMenu, cometEventMenu, topMenu, adminMenu].forEach(m => {
     if (m) m.classList.remove("active");
   });
 }
@@ -910,6 +1337,8 @@ on("potionShopBtn", "click", () => openMenu(potionMenu));
 on("settingsBtn", "click", () => openMenu(settingsMenu));
 on("profileBtn", "click", () => openMenu(profileMenu));
 on("chatBtn", "click", () => openMenu(chatMenu));
+on("tradeBtn", "click", () => openMenu(tradeMenu));
+on("cometEventBtn", "click", () => openMenu(cometEventMenu));
 on("topBtn", "click", () => openMenu(topMenu));
 document.querySelectorAll("[data-close]").forEach(btn => {
   btn.addEventListener("click", closeAllMenus);
@@ -965,7 +1394,7 @@ function renderShop() {
       el.addEventListener("click", () => {
         score -= price;
         item.owned++;
-        item.apply();
+        applyUpgradeItem(item);
         stats.itemsBought++;
         playBuySound();
         updateScore();
@@ -982,6 +1411,7 @@ document.querySelectorAll(".shop-tab").forEach(tab => {
 /* ========== \u0420\u045C\u0420\u0452\u0420\u040E\u0420\u045E\u0420 \u041E\u0419\u041A\u0418 ========== */
 const glowToggle = $("glowToggle");
 const soundToggle = $("soundToggle");
+const musicToggle = $("musicToggle");
 on("glowToggle", "click", () => {
   settings.glowEnabled = !settings.glowEnabled;
   applySettings(); saveGame();
@@ -995,9 +1425,19 @@ on("soundToggle", "click", () => {
   soundEnabled = settings.soundEnabled;
   applySettings(); saveGame();
 });
+on("musicToggle", "click", () => {
+  settings.musicEnabled = settings.musicEnabled === false;
+  applySettings();
+  updateLobbyMusic();
+  if (settings.musicEnabled !== false) playLobbyMusic();
+  saveGame();
+});
 function applySettings() {
+  if (settings.musicEnabled === undefined) settings.musicEnabled = true;
   if (glowToggle) glowToggle.classList.toggle("on", settings.glowEnabled);
   if (soundToggle) soundToggle.classList.toggle("on", settings.soundEnabled);
+  if (musicToggle) musicToggle.classList.toggle("on", settings.musicEnabled !== false);
+  updateLobbyMusic();
 }
 on("resetBtn", "click", async () => {
   if (!confirm("Reset ALL progress? This cannot be undone!")) return;
@@ -1146,6 +1586,23 @@ function renderStats() {
 const chatMessagesEl = $("chatMessages");
 const chatInput = $("chatInput");
 const chatSendBtn = $("chatSendBtn");
+const plazaPetSelect = $("plazaPetSelect");
+const plazaFishPriceInput = $("plazaFishPriceInput");
+const plazaPriceInput = $("plazaPriceInput");
+const plazaStellPriceInput = $("plazaStellPriceInput");
+const plazaListBtn = $("plazaListBtn");
+const plazaListingsEl = $("plazaListings");
+const plazaMySalesEl = $("plazaMySales");
+const activePlayersListEl = $("activePlayersList");
+const tradeRequestsListEl = $("tradeRequestsList");
+let tradeListening = false;
+let activeTradeTab = "plaza";
+let cachedPlazaListings = [];
+let cachedActivePlayers = [];
+let cachedTradeRequests = [];
+let cachedTradeSessions = [];
+let activeTradeSessionId = null;
+const finalizingTradeSessions = new Set();
 
 function cleanChatText(text) {
   return String(text || "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
@@ -1165,7 +1622,7 @@ function renderChatMessages(list) {
   }
   chatMessagesEl.innerHTML = msgs.map((msg) => {
     const cls = ["chat-line", msg.type === "system" ? "system" : "", msg.eventType || "", msg.admin ? "admin" : ""].filter(Boolean).join(" ");
-    const authorCls = msg.vip ? "chat-author vip" : "chat-author";
+    const authorCls = msg.imperial ? "chat-author imperial" : (msg.vip ? "chat-author vip" : "chat-author");
     const author = msg.type === "system" ? (msg.author || "SYSTEM") : (msg.name || "Anonymous");
     return `
       <div class="${cls}">
@@ -1219,6 +1676,7 @@ async function sendChatMessage() {
     playerId: ensurePlayerId(),
     name: getChatName(),
     vip: !!vipActive,
+    imperial: !!imperialActive,
     text,
     createdAt: now
   };
@@ -1243,6 +1701,7 @@ async function postSystemChat(text, eventType = "system", extra = {}) {
     playerId: ensurePlayerId(),
     name: getChatName(),
     vip: !!vipActive,
+    imperial: !!imperialActive,
     admin: !!extra.admin,
     createdAt: Date.now()
   };
@@ -1255,9 +1714,368 @@ if (chatInput) chatInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); sendChatMessage(); }
 });
 
+/* ========== TRADES ========== */
+function getPetApiSafe() {
+  return window.petSystemApi || null;
+}
+function getTradablePetsSafe() {
+  return getPetApiSafe()?.getTradablePets?.() || [];
+}
+function makeTradeId() {
+  return Date.now() + "_" + Math.random().toString(36).slice(2, 10);
+}
+function getPlayerTradeName() {
+  return getChatName();
+}
+function setTradeTab(tab) {
+  activeTradeTab = tab || "plaza";
+  document.querySelectorAll("[data-trade-tab]").forEach(btn => btn.classList.toggle("active", btn.dataset.tradeTab === activeTradeTab));
+  document.querySelectorAll("[data-trade-panel]").forEach(panel => panel.classList.toggle("active", panel.dataset.tradePanel === activeTradeTab));
+  renderTradeUi();
+}
+document.querySelectorAll("[data-trade-tab]").forEach(btn => btn.addEventListener("click", () => setTradeTab(btn.dataset.tradeTab)));
+function renderPlazaPetSelect() {
+  if (!plazaPetSelect) return;
+  const pets = getTradablePetsSafe();
+  plazaPetSelect.innerHTML = pets.length
+    ? pets.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} • ${escapeHtml(p.rarity)}</option>`).join("")
+    : `<option value="">No tradable pets</option>`;
+}
+function getListingPrices(l) {
+  return {
+    fish: Number(l?.prices?.fish ?? 0) || 0,
+    crystals: Number(l?.prices?.crystals ?? l?.price ?? 0) || 0,
+    stell: Number(l?.prices?.stell ?? 0) || 0
+  };
+}
+function formatListingPrice(l) {
+  const p = getListingPrices(l);
+  const parts = [];
+  if (p.fish > 0) parts.push(`${formatNum(p.fish)} fish`);
+  if (p.crystals > 0) parts.push(`${formatNum(p.crystals)} amethysts`);
+  if (p.stell > 0) parts.push(`${formatNum(p.stell)} Stell`);
+  return parts.length ? parts.join(" + ") : "FREE";
+}
+function renderPlaza() {
+  renderPlazaPetSelect();
+  if (!currentUser) return;
+  const activeListings = cachedPlazaListings.filter(l => l.status === "active" && l.sellerUid !== currentUser.uid).slice(0, 80);
+  const mySales = cachedPlazaListings.filter(l => l.sellerUid === currentUser.uid && ["active", "sold"].includes(l.status)).slice(0, 80);
+  if (plazaListingsEl) {
+    plazaListingsEl.innerHTML = activeListings.length ? activeListings.map(l => `
+      <div class="trade-card">
+        <div class="trade-pet">${escapeHtml(l.pet?.name || "Pet")} • ${escapeHtml(l.pet?.rarity || "")}</div>
+        <div class="trade-meta">Seller: ${escapeHtml(l.sellerName || "Player")}<br/>Price: ${formatListingPrice(l)}</div>
+        <button class="recovery-btn ui-click" data-plaza-buy="${l.id}">BUY</button>
+      </div>
+    `).join("") : `<div class="chat-muted">No pets for sale yet</div>`;
+  }
+  if (plazaMySalesEl) {
+    plazaMySalesEl.innerHTML = mySales.length ? mySales.map(l => `
+      <div class="trade-card">
+        <div class="trade-pet">${escapeHtml(l.pet?.name || "Pet")} • ${escapeHtml(l.pet?.rarity || "")}</div>
+        <div class="trade-meta">Price: ${formatListingPrice(l)} • Status: ${escapeHtml(l.status)}</div>
+        <div class="trade-actions">
+          ${l.status === "active" ? `<button class="danger-btn ui-click" data-plaza-cancel="${l.id}">CANCEL</button>` : ""}
+          ${l.status === "sold" ? `<button class="recovery-btn ui-click" data-plaza-claim="${l.id}">CLAIM ${formatListingPrice(l)}</button>` : ""}
+        </div>
+      </div>
+    `).join("") : `<div class="chat-muted">No active sales</div>`;
+  }
+}
+function renderActivePlayers() {
+  if (!activePlayersListEl || !currentUser) return;
+  const now = Date.now();
+  const players = cachedActivePlayers
+    .filter(p => p.uid && p.uid !== currentUser.uid && now - (p.lastSeen || 0) < 120000)
+    .sort((a,b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+  activePlayersListEl.innerHTML = players.length ? players.map(p => `
+    <div class="trade-card active-player-card" data-request-player="${escapeHtml(p.uid)}">
+      <div class="trade-pet ${p.imperial ? "imperial-name" : (p.vip ? "vip-name" : "")}">${escapeHtml((p.imperial ? "[Imperial] " : (p.vip ? "[VIP] " : "")) + (p.name || "Player"))}</div>
+      <div class="trade-meta">UID: ${escapeHtml(p.uid)}<br/>Click to send trade request</div>
+    </div>
+  `).join("") : `<div class="chat-muted">No active players right now</div>`;
+}
+function renderTradeRequests() {
+  if (!tradeRequestsListEl || !currentUser) return;
+  const pending = cachedTradeRequests.filter(r => r.status === "pending");
+  tradeRequestsListEl.innerHTML = pending.length ? pending.map(r => `
+    <div class="trade-card">
+      <div class="trade-pet">${escapeHtml(r.fromName || "Player")} wants to trade</div>
+      <div class="trade-meta">From UID: ${escapeHtml(r.fromUid || "")}</div>
+      <div class="trade-actions">
+        <button class="recovery-btn ui-click" data-trade-request-accept="${r.id}">ACCEPT</button>
+        <button class="danger-btn ui-click" data-trade-request-decline="${r.id}">DECLINE</button>
+      </div>
+    </div>
+  `).join("") : `<div class="chat-muted">No trade requests</div>`;
+}
+function renderTradeUi() {
+  renderPlaza();
+  renderActivePlayers();
+  renderTradeRequests();
+  renderActiveTradeSession();
+}
+async function updateActivePlayerPresence() {
+  if (!window.fb || !currentUser) return;
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `activePlayers/${currentUser.uid}`), {
+      uid: currentUser.uid,
+      playerId: ensurePlayerId(),
+      name: getPlayerTradeName(),
+      vip: !!vipActive,
+      imperial: !!imperialActive,
+      lastSeen: Date.now()
+    });
+  } catch (e) { console.warn("Presence update failed", e); }
+}
+function listenTrades() {
+  if (tradeListening || !window.fb || !currentUser) return;
+  tradeListening = true;
+  updateActivePlayerPresence();
+  setInterval(updateActivePlayerPresence, 20000);
+  try {
+    window.fb.onValue(window.fb.ref(window.fb.db, "tradeListings"), (snap) => {
+      cachedPlazaListings = Object.values(snap.val() || {}).filter(Boolean).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+      renderTradeUi();
+    });
+    window.fb.onValue(window.fb.ref(window.fb.db, "activePlayers"), (snap) => {
+      cachedActivePlayers = Object.values(snap.val() || {}).filter(Boolean);
+      renderTradeUi();
+    });
+    window.fb.onValue(window.fb.ref(window.fb.db, `tradeRequests/${currentUser.uid}`), (snap) => {
+      cachedTradeRequests = Object.values(snap.val() || {}).filter(Boolean).sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
+      renderTradeUi();
+    });
+    window.fb.onValue(window.fb.ref(window.fb.db, "tradeSessions"), (snap) => {
+      cachedTradeSessions = Object.values(snap.val() || {}).filter(s => s && s.status === "active" && (s.aUid === currentUser.uid || s.bUid === currentUser.uid));
+      renderTradeUi();
+    });
+  } catch (e) { tradeListening = false; console.warn("Trade listen failed", e); }
+}
+function openTrades() {
+  setTradeTab(activeTradeTab || "plaza");
+  listenTrades();
+  renderTradeUi();
+}
+async function listPetOnPlaza() {
+  if (!window.fb || !currentUser) return alert("Firebase not ready");
+  const petId = plazaPetSelect?.value;
+  if (!petId) return alert("Choose a pet");
+  const fishPrice = Math.max(0, parseNumInput(plazaFishPriceInput?.value || "0"));
+  const price = Math.max(0, parseNumInput(plazaPriceInput?.value || "0"));
+  const stellPrice = Math.max(0, parseNumInput(plazaStellPriceInput?.value || "0"));
+  if ([fishPrice, price, stellPrice].some(isNaN)) return alert("Invalid price");
+  const removed = getPetApiSafe()?.removePetForTrade?.(petId);
+  if (!removed || !removed.ok) return alert(removed?.error || "Cannot list this pet");
+  const id = makeTradeId();
+  const listing = { id, sellerUid: currentUser.uid, sellerName: getPlayerTradeName(), pet: removed.pet, price, prices: { fish: fishPrice, crystals: price, stell: stellPrice }, status: "active", createdAt: Date.now() };
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `tradeListings/${id}`), listing);
+    renderPlazaPetSelect();
+    showNotification("Pet listed!", "#4ade80", 2200);
+  } catch (e) {
+    getPetApiSafe()?.addPetFromTrade?.(removed.pet);
+    alert("List failed: " + e.message);
+  }
+}
+async function buyPlazaListing(id) {
+  const l = cachedPlazaListings.find(x => x.id === id);
+  if (!l || !currentUser || l.status !== "active" || l.sellerUid === currentUser.uid) return;
+  const prices = getListingPrices(l);
+  if (score < prices.fish) return alert("Not enough fish");
+  if (crystals < prices.crystals) return alert("Not enough amethysts");
+  if (stell < prices.stell) return alert("Not enough Stell");
+  const added = getPetApiSafe()?.addPetFromTrade?.(l.pet);
+  if (!added || !added.ok) return alert(added?.error || "Cannot receive pet");
+  score -= prices.fish;
+  crystals -= prices.crystals;
+  stell -= prices.stell;
+  updateScore();
+  saveGame();
+  try {
+    await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), { status: "sold", buyerUid: currentUser.uid, buyerName: getPlayerTradeName(), soldAt: Date.now() });
+    showNotification("Pet bought!", "#4ade80", 2200);
+  } catch (e) { alert("Buy update failed: " + e.message); }
+}
+async function cancelPlazaListing(id) {
+  const l = cachedPlazaListings.find(x => x.id === id);
+  if (!l || !currentUser || l.sellerUid !== currentUser.uid || l.status !== "active") return;
+  const ret = getPetApiSafe()?.addPetFromTrade?.(l.pet);
+  if (!ret || !ret.ok) return alert(ret?.error || "Cannot return pet");
+  try { await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), { status: "cancelled", cancelledAt: Date.now() }); }
+  catch (e) { alert("Cancel failed: " + e.message); }
+}
+async function claimPlazaSale(id) {
+  const l = cachedPlazaListings.find(x => x.id === id);
+  if (!l || !currentUser || l.sellerUid !== currentUser.uid || l.status !== "sold") return;
+  const prices = getListingPrices(l);
+  score += prices.fish;
+  crystals += prices.crystals;
+  stell += prices.stell;
+  updateScore();
+  saveGame();
+  try { await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), { status: "claimed", claimedAt: Date.now() }); }
+  catch (e) { alert("Claim failed: " + e.message); }
+}
+async function sendPlayerTradeRequest(toUid) {
+  if (!window.fb || !currentUser || !toUid || toUid === currentUser.uid) return;
+  const id = makeTradeId();
+  const req = { id, fromUid: currentUser.uid, fromName: getPlayerTradeName(), toUid, status: "pending", createdAt: Date.now() };
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `tradeRequests/${toUid}/${id}`), req);
+    showNotification("Trade request sent!", "#4ade80", 2200);
+  } catch (e) { alert("Request failed: " + e.message); }
+}
+async function acceptPlayerTradeRequest(id) {
+  const r = cachedTradeRequests.find(x => x.id === id);
+  if (!r || !currentUser || r.toUid !== currentUser.uid) return;
+  const sessionId = makeTradeId();
+  const session = {
+    id: sessionId,
+    aUid: r.fromUid,
+    bUid: currentUser.uid,
+    names: { [r.fromUid]: r.fromName || "Player", [currentUser.uid]: getPlayerTradeName() },
+    offers: { [r.fromUid]: [], [currentUser.uid]: [] },
+    ready: { [r.fromUid]: false, [currentUser.uid]: false },
+    completedFor: {},
+    status: "active",
+    createdAt: Date.now()
+  };
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${sessionId}`), session);
+    await window.fb.update(window.fb.ref(window.fb.db, `tradeRequests/${currentUser.uid}/${id}`), { status: "accepted", sessionId, acceptedAt: Date.now() });
+    activeTradeSessionId = sessionId;
+  } catch (e) { alert("Accept failed: " + e.message); }
+}
+async function declinePlayerTradeRequest(id) {
+  const r = cachedTradeRequests.find(x => x.id === id);
+  if (!r || !currentUser || r.toUid !== currentUser.uid) return;
+  try { await window.fb.update(window.fb.ref(window.fb.db, `tradeRequests/${currentUser.uid}/${id}`), { status: "declined", declinedAt: Date.now() }); }
+  catch (e) { alert("Decline failed: " + e.message); }
+}
+function getActiveSession() {
+  if (activeTradeSessionId) {
+    const picked = cachedTradeSessions.find(s => s.id === activeTradeSessionId);
+    if (picked) return picked;
+  }
+  return cachedTradeSessions[0] || null;
+}
+function renderActiveTradeSession() {
+  const session = getActiveSession();
+  const old = document.getElementById("tradeSessionModal");
+  if (!session || !currentUser) { if (old) old.remove(); return; }
+  activeTradeSessionId = session.id;
+  const myUid = currentUser.uid;
+  const otherUid = session.aUid === myUid ? session.bUid : session.aUid;
+  const myOffer = session.offers?.[myUid] || [];
+  const theirOffer = session.offers?.[otherUid] || [];
+  const pets = getTradablePetsSafe().filter(p => !myOffer.some(o => o.id === p.id));
+  const ready = session.ready || {};
+  let modal = old;
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "tradeSessionModal";
+    modal.className = "top-admin-modal trade-session-modal";
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div class="top-admin-box trade-session-box">
+      <div class="top-admin-title">LIVE TRADE WITH ${escapeHtml(session.names?.[otherUid] || "PLAYER")}</div>
+      <div class="trade-session-grid">
+        <div class="trade-side"><div class="trade-title">YOU ${ready[myUid] ? "✓" : ""}</div><div class="trade-offer-list">${myOffer.map(p => `<div class="trade-pet-chip">${escapeHtml(p.name)} <button data-session-remove="${escapeHtml(p.id)}">x</button></div>`).join("") || "Empty"}</div></div>
+        <div class="trade-side"><div class="trade-title">THEM ${ready[otherUid] ? "✓" : ""}</div><div class="trade-offer-list">${theirOffer.map(p => `<div class="trade-pet-chip">${escapeHtml(p.name)}</div>`).join("") || "Empty"}</div></div>
+      </div>
+      <select class="name-input" id="sessionPetSelect">${pets.length ? pets.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} • ${escapeHtml(p.rarity)}</option>`).join("") : `<option value="">No pets</option>`}</select>
+      <button class="recovery-btn ui-click" id="sessionAddPet">ADD PET</button>
+      <div class="trade-actions">
+        <button class="recovery-btn ui-click" id="sessionReady">${ready[myUid] ? "UNREADY" : "READY"}</button>
+        <button class="danger-btn ui-click" id="sessionDecline">DECLINE</button>
+      </div>
+    </div>
+  `;
+  modal.querySelector("#sessionAddPet")?.addEventListener("click", () => addPetToSession(session));
+  modal.querySelector("#sessionReady")?.addEventListener("click", () => toggleSessionReady(session));
+  modal.querySelector("#sessionDecline")?.addEventListener("click", () => declineSession(session));
+  modal.querySelectorAll("[data-session-remove]").forEach(btn => btn.addEventListener("click", () => removePetFromSession(session, btn.dataset.sessionRemove)));
+  if (ready[myUid] && ready[otherUid] && !(session.completedFor && session.completedFor[myUid])) finalizeSessionForMe(session);
+}
+async function addPetToSession(session) {
+  const sel = document.getElementById("sessionPetSelect");
+  const petId = sel?.value;
+  if (!petId || !currentUser) return;
+  const pet = getTradablePetsSafe().find(p => p.id === petId);
+  if (!pet) return alert("Pet not found or locked");
+  const myUid = currentUser.uid;
+  const offer = [...(session.offers?.[myUid] || []), pet].slice(0, 8);
+  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/offers/${myUid}`), offer);
+  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/ready/${myUid}`), false);
+}
+async function removePetFromSession(session, petId) {
+  const myUid = currentUser.uid;
+  const offer = (session.offers?.[myUid] || []).filter(p => p.id !== petId);
+  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/offers/${myUid}`), offer);
+  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/ready/${myUid}`), false);
+}
+async function toggleSessionReady(session) {
+  const myUid = currentUser.uid;
+  const next = !(session.ready && session.ready[myUid]);
+  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/ready/${myUid}`), next);
+}
+async function declineSession(session) {
+  if (!confirm("Decline trade?")) return;
+  await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "cancelled", cancelledAt: Date.now() });
+  activeTradeSessionId = null;
+  const modal = document.getElementById("tradeSessionModal");
+  if (modal) modal.remove();
+}
+async function finalizeSessionForMe(session) {
+  const myUid = currentUser.uid;
+  if (finalizingTradeSessions.has(session.id)) return;
+  finalizingTradeSessions.add(session.id);
+  const otherUid = session.aUid === myUid ? session.bUid : session.aUid;
+  const myOffer = session.offers?.[myUid] || [];
+  const theirOffer = session.offers?.[otherUid] || [];
+  for (const pet of myOffer) {
+    const removed = getPetApiSafe()?.removePetForTrade?.(pet.id);
+    if (!removed || !removed.ok) {
+      alert("Trade failed: one of your pets is no longer available.");
+      await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "failed", failedAt: Date.now() });
+      finalizingTradeSessions.delete(session.id);
+      return;
+    }
+  }
+  for (const pet of theirOffer) {
+    const added = getPetApiSafe()?.addPetFromTrade?.(pet);
+    if (!added || !added.ok) alert(added?.error || "Could not receive one pet");
+  }
+  saveGame();
+  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/completedFor/${myUid}`), true);
+  const completed = { ...(session.completedFor || {}), [myUid]: true };
+  if (completed[otherUid]) await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "completed", completedAt: Date.now() });
+  showNotification("Trade completed!", "#4ade80", 2600);
+  finalizingTradeSessions.delete(session.id);
+}
+if (plazaListBtn) plazaListBtn.addEventListener("click", listPetOnPlaza);
+document.addEventListener("click", (e) => {
+  const buy = e.target.closest("[data-plaza-buy]");
+  const cancel = e.target.closest("[data-plaza-cancel]");
+  const claim = e.target.closest("[data-plaza-claim]");
+  const reqPlayer = e.target.closest("[data-request-player]");
+  const reqAccept = e.target.closest("[data-trade-request-accept]");
+  const reqDecline = e.target.closest("[data-trade-request-decline]");
+  if (buy) buyPlazaListing(buy.dataset.plazaBuy);
+  if (cancel) cancelPlazaListing(cancel.dataset.plazaCancel);
+  if (claim) claimPlazaSale(claim.dataset.plazaClaim);
+  if (reqPlayer) sendPlayerTradeRequest(reqPlayer.dataset.requestPlayer);
+  if (reqAccept) acceptPlayerTradeRequest(reqAccept.dataset.tradeRequestAccept);
+  if (reqDecline) declinePlayerTradeRequest(reqDecline.dataset.tradeRequestDecline);
+});
+
 /* ========== \u0422\u041E\u041F ========== */
 let currentTopTab = "fish";
 let cachedLeaderboard = [];
+let hiddenTopUids = [];
 document.querySelectorAll(".top-tab").forEach(tab => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".top-tab").forEach(t => t.classList.remove("active"));
@@ -1272,10 +2090,15 @@ async function loadTop() {
   topList.innerHTML = `<div class="top-loading">Loading...</div>`;
   if (!window.fb) { topList.innerHTML = `<div class="top-loading">Firebase not loaded</div>`; return; }
   try {
-    const snap = await window.fb.get(window.fb.ref(window.fb.db, "leaderboard"));
-    cachedLeaderboard = Object.values(snap.val() || {});
+    const [lbRes, hiddenRes] = await Promise.allSettled([
+      window.fb.get(window.fb.ref(window.fb.db, "leaderboard")),
+      window.fb.get(window.fb.ref(window.fb.db, "topHidden"))
+    ]);
+    if (lbRes.status !== "fulfilled") throw lbRes.reason;
+    cachedLeaderboard = Object.values(lbRes.value.val() || {});
+    hiddenTopUids = hiddenRes.status === "fulfilled" ? Object.keys(hiddenRes.value.val() || {}) : [];
     renderTop(cachedLeaderboard);
-  } catch (e) { topList.innerHTML = `<div class="top-loading">Failed to load</div>`; }
+  } catch (e) { topList.innerHTML = `<div class="top-loading">Failed to load: ${escapeHtml(e.message || String(e))}</div>`; }
 }
 function renderTop(list) {
   const topList = $("topList");
@@ -1285,7 +2108,7 @@ function renderTop(list) {
     topList.innerHTML = `<div class="top-loading">No players yet.<br/>Click cat to be first!</div>`;
     return;
   }
-  const filtered = list.filter(p => !BANNED_UIDS.includes(p.uid));
+  const filtered = list.filter(p => !BANNED_UIDS.includes(p.uid) && !hiddenTopUids.includes(p.uid));
   const byIdentity = new Map();
   filtered.forEach((p) => {
     const key = p.playerId || p.uid || ((p.name || "anon") + "_" + (p.avatar ? "avatar" : "noavatar"));
@@ -1315,15 +2138,109 @@ function renderTop(list) {
     else if (currentTopTab === "amethysts") value = formatNum(player.amethysts || 0);
     else if (currentTopTab === "eggs") value = formatNum(player.eggs || 0);
     else value = formatNum(player.fish || 0);
-    const displayName = `${player.vip ? "[\u0412\u0438\u043F] " : ""}${player.name || 'Anonymous'}`;
+    const displayName = `${player.imperial ? "[Imperial] " : (player.vip ? "[\u0412\u0438\u043F] " : "")}${player.name || 'Anonymous'}`;
     el.innerHTML = `
       <div class="top-rank ${rankClass}">#${rank}</div>
       <div class="top-avatar"><img src="${player.avatar || 'CatIcon1.png'}" alt="" onerror="this.src='CatIcon1.png'" /></div>
-      <div class="top-name ${player.vip ? "vip-name" : ""}">${escapeHtml(displayName)}</div>
+      <div class="top-name ${player.imperial ? "imperial-name" : (player.vip ? "vip-name" : "")}">${escapeHtml(displayName)}</div>
       <div class="top-value">${value}</div>
     `;
+    if (canUseAdmin(currentUser && currentUser.uid)) {
+      el.style.cursor = "pointer";
+      el.title = "Admin actions";
+      el.addEventListener("click", () => openTopPlayerAdminModal(player));
+    }
     topList.appendChild(el);
   });
+}
+
+function closeTopAdminModal() {
+  const old = document.getElementById("topAdminModal");
+  if (old) old.remove();
+}
+
+function openTopPlayerAdminModal(player) {
+  if (!canUseAdmin(currentUser && currentUser.uid) || !player) return;
+  closeTopAdminModal();
+  const modal = document.createElement("div");
+  modal.id = "topAdminModal";
+  modal.className = "top-admin-modal";
+  modal.innerHTML = `
+    <div class="top-admin-box">
+      <div class="top-admin-title">ADMIN: ${escapeHtml(player.name || "Anonymous")}</div>
+      <div class="top-admin-uid">UID: ${escapeHtml(player.uid || "-")}</div>
+      <button class="admin-btn ui-click" id="topAdminSet">SET STATS</button>
+      <button class="admin-btn danger-admin ui-click" id="topAdminBan">BAN / HIDE FROM TOP</button>
+      <button class="admin-btn danger-admin ui-click" id="topAdminDelete">DELETE FROM TOP FOREVER</button>
+      <button class="admin-btn ui-click" id="topAdminClose">CLOSE</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelector("#topAdminClose").addEventListener("click", closeTopAdminModal);
+  modal.addEventListener("click", (e) => { if (e.target === modal) closeTopAdminModal(); });
+  modal.querySelector("#topAdminDelete").addEventListener("click", () => adminDeleteTopPlayer(player));
+  modal.querySelector("#topAdminBan").addEventListener("click", () => adminHideTopPlayer(player));
+  modal.querySelector("#topAdminSet").addEventListener("click", () => adminSetTopPlayerStats(player));
+}
+
+async function adminHideTopPlayer(player) {
+  if (!canUseAdmin(currentUser && currentUser.uid) || !window.fb || !player.uid) return;
+  if (!confirm(`Hide ${player.name || player.uid} from top forever?`)) return;
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `topHidden/${player.uid}`), { hidden: true, by: currentUser.uid, at: Date.now(), name: player.name || "" });
+    hiddenTopUids.push(player.uid);
+    renderTop(cachedLeaderboard);
+    closeTopAdminModal();
+  } catch (e) { alert("Failed: " + e.message); }
+}
+
+async function adminDeleteTopPlayer(player) {
+  if (!canUseAdmin(currentUser && currentUser.uid) || !window.fb || !player.uid) return;
+  if (!confirm(`DELETE ${player.name || player.uid} from leaderboard and hide forever?`)) return;
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `topHidden/${player.uid}`), { hidden: true, by: currentUser.uid, at: Date.now(), name: player.name || "" });
+    await window.fb.remove(window.fb.ref(window.fb.db, `leaderboard/${player.uid}`));
+    cachedLeaderboard = cachedLeaderboard.filter((p) => p.uid !== player.uid);
+    if (!hiddenTopUids.includes(player.uid)) hiddenTopUids.push(player.uid);
+    renderTop(cachedLeaderboard);
+    closeTopAdminModal();
+  } catch (e) { alert("Failed: " + e.message); }
+}
+
+async function adminSetTopPlayerStats(player) {
+  if (!canUseAdmin(currentUser && currentUser.uid) || !window.fb || !player.uid) return;
+  try {
+    const snap = await window.fb.get(window.fb.ref(window.fb.db, `users/${player.uid}`));
+    const data = snap.val() || {};
+    const scoreVal = prompt("Current fish:", data.score ?? 0);
+    if (scoreVal === null) return;
+    const crystalsVal = prompt("Amethysts:", data.crystals ?? 0);
+    if (crystalsVal === null) return;
+    const clickVal = prompt("Click power:", data.clickPower ?? 1);
+    if (clickVal === null) return;
+    const autoVal = prompt("Auto/sec:", data.autoClicker ?? 0);
+    if (autoVal === null) return;
+    const totalVal = prompt("Total fish earned:", data.stats?.totalFishEarned ?? player.fish ?? 0);
+    if (totalVal === null) return;
+    const newData = { ...data, stats: { ...(data.stats || {}) } };
+    newData.score = parseNumInput(scoreVal);
+    newData.crystals = parseNumInput(crystalsVal);
+    newData.clickPower = parseNumInput(clickVal);
+    newData.autoClicker = parseNumInput(autoVal);
+    newData.stats.totalFishEarned = parseNumInput(totalVal);
+    if ([newData.score, newData.crystals, newData.clickPower, newData.autoClicker, newData.stats.totalFishEarned].some(isNaN)) { alert("Invalid number"); return; }
+    await window.fb.set(window.fb.ref(window.fb.db, `users/${player.uid}`), newData);
+    await window.fb.update(window.fb.ref(window.fb.db, `leaderboard/${player.uid}`), {
+      fish: newData.stats.totalFishEarned,
+      amethysts: newData.crystals,
+      updated: Date.now()
+    });
+    const cmd = { id: Date.now() + "_" + Math.random().toString(36).slice(2,8), type: "replaceSave", data: newData, from: currentUser.uid, timestamp: Date.now(), delayMs: 500 };
+    await window.fb.set(window.fb.ref(window.fb.db, `commands/${player.uid}/${cmd.id}`), cmd);
+    closeTopAdminModal();
+    loadTop();
+    alert("✓ Stats updated");
+  } catch (e) { alert("Failed: " + e.message); }
 }
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -1340,6 +2257,7 @@ async function pushToLeaderboard() {
       name: profile.name || "Anonymous",
       avatar: profile.avatar || null,
       vip: vipActive,
+      imperial: imperialActive,
       fish: stats.totalFishEarned,
       clicks: stats.totalClicks,
       time: stats.playTimeSec,
@@ -1450,7 +2368,7 @@ function createSaveFilePayload() {
 }
 
 function decodeProtectedSave(raw) {
-  if (!raw || raw.type !== SAVE_FILE_TYPE || raw.version !== SAVE_FILE_VERSION || raw.encoding !== SAVE_FILE_ENCODING) return null;
+  if (!raw || raw.type !== SAVE_FILE_TYPE || !raw.version || raw.version < 2 || raw.encoding !== SAVE_FILE_ENCODING) return null;
   if (!raw.payload || !raw.hash || !raw.exportedAt) return null;
   const ownerForHash = raw.ownerUid || "NO_UID";
   const expectedHash = makeSaveIntegrityHash(raw.payload, raw.exportedAt, raw.version, ownerForHash);
@@ -1489,6 +2407,7 @@ function sanitizeImportedSaveData(data, trustedProtected) {
   const MAX_VALUE = 1e18;
   clampFinite(clean, "score", 0, MAX_VALUE, 0);
   clampFinite(clean, "crystals", 0, MAX_VALUE, 0);
+  clampFinite(clean, "stell", 0, MAX_VALUE, 0);
   clampFinite(clean, "clickPower", 1, MAX_VALUE, 1);
   clampFinite(clean, "autoClicker", 0, MAX_VALUE, 0);
   clampFinite(clean, "rebirthCount", 0, 1000000, 0);
@@ -1694,7 +2613,7 @@ async function importSaveFromFile(file) {
     if (currentUser) {
       pushToLeaderboard();
       lastPushedFish = stats.totalFishEarned;
-      if (!recoveryCode) ensureRecoveryCode();
+      // recovery codes disabled
     }
     showNotification("✓ Save imported!", "#4ade80", 3000);
   } catch (e) {
@@ -1717,24 +2636,8 @@ function updateRecoveryDisplay() {
   if (el) el.textContent = recoveryCode || "--------";
 }
 async function ensureRecoveryCode() {
-  if (recoveryCode || !currentUser || !window.fb) return;
-  const fb = window.fb;
-  if (recoveryCode) {
-    try { await fb.remove(fb.ref(fb.db, `recovery/${recoveryCode}`)); } catch(e){}
-  }
-  for (let i = 0; i < 5; i++) {
-    const code = generateRecoveryCode();
-    try {
-      const snap = await fb.get(fb.ref(fb.db, `recovery/${code}`));
-      if (!snap.exists()) {
-        await fb.set(fb.ref(fb.db, `recovery/${code}`), currentUser.uid);
-        recoveryCode = code;
-        updateRecoveryDisplay();
-        saveGame();
-        return;
-      }
-    } catch (e) { console.warn("Recovery code gen error", e); }
-  }
+  // Recovery codes are disabled. File export/import is the supported save system.
+  return;
 }
 async function restoreFromCode(rawCode) {
   const fb = window.fb;
@@ -1821,10 +2724,10 @@ function initAuth() {
           }
         }
       } catch (e) { console.warn("Cloud load failed", e); }
-      if (!recoveryCode) await ensureRecoveryCode();
       updateRecoveryDisplay();
       saveGame();
       pushToLeaderboard();
+      try { updateActivePlayerPresence(); } catch (e) {}
       window.dispatchEvent(new Event("auth-ready"));
     } else {
       try { await fb.signInAnonymously(fb.auth); }
@@ -1841,6 +2744,7 @@ loadGame();
 ensurePlayerId();
 updateIncome();
 updatePotionStatusBar();
+updateCometEvent();
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) saveOnBackground();
@@ -1856,6 +2760,7 @@ window.addEventListener("pageshow", (e) => {
 window.gameState = {
   get score() { return score; }, set score(v) { score = v; updateScore(); },
   get crystals() { return crystals; }, set crystals(v) { crystals = v; updateScore(); },
+  get stell() { return stell; }, set stell(v) { stell = v; updateScore(); },
   get clickPower() { return clickPower; }, set clickPower(v) { clickPower = v; updateIncome(); },
   get autoClicker() { return autoClicker; }, set autoClicker(v) { autoClicker = v; updateIncome(); },
   get goldClicks() { return goldClicks; }, set goldClicks(v) { goldClicks = v; updateWaveBars(); },
@@ -1879,15 +2784,16 @@ window.gameState = {
   get rebirthCount() { return rebirthCount; }, set rebirthCount(v) { rebirthCount = v; },
   get rebirthMultiplier() { return rebirthMultiplier; }, set rebirthMultiplier(v) { rebirthMultiplier = v; },
   get potions() { return potions; }, set potions(v) { potions = v; },
-  get vipActive() { return vipActive; }, set vipActive(v) { vipActive = !!v; updateIncome(); }
+  get vipActive() { return vipActive; }, set vipActive(v) { vipActive = !!v; updateIncome(); },
+  get imperialActive() { return imperialActive; }, set imperialActive(v) { imperialActive = !!v; updateIncome(); }
 };
 window.gameFns = {
   formatNum, parseNumInput, formatTime, formatDuration, escapeHtml,
   updateScore, updateIncome, updateWaveBars, updateRecoveryDisplay,
   saveGame, buildSaveData, applySaveData,
   startWave, endWave, queueWavesSequentially,
-  playRewardSound, playWaveSound, playBuySound, showNotification,
-  openMenu, closeAllMenus, renderShop, renderPotionShop, renderStats, loadTop, renderTop, pushToLeaderboard, postSystemChat,
+  playRewardSound, playWaveSound, playBuySound, playEggCrackSound, playEggRevealSound, showNotification,
+  openMenu, closeAllMenus, renderShop, renderPotionShop, renderStats, loadTop, renderTop, pushToLeaderboard, postSystemChat, forceStartCometEvent,
   checkAdmin, isUidAdmin, canUseAdmin, spawnFlyingFish, spawnFlyingCrystal,
-  getRebirthCost, doRebirth, getClickIncome, getAutoIncome, getPetLuckMult, updatePotionStatusBar, grantVipPetIfPossible
+  getRebirthCost, doRebirth, getClickIncome, getAutoIncome, getPetLuckMult, updatePotionStatusBar, grantVipPetIfPossible, grantImperialPetIfPossible
 };

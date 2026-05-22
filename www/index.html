@@ -46,12 +46,19 @@
     <button class="icon-btn ui-click" id="chatBtn">
       <img src="ChatIcon.png" alt="Chat" />
     </button>
+    <button class="icon-btn ui-click" id="tradeBtn"><img src="TradeIcon.png" alt="Trades" /></button>
   </div>
 
   <div class="score-bar" id="scoreBar">
     <img src="FishIcon1.png" alt="Fish" />
     <span id="scoreText">0</span>
   </div>
+
+  <div class="comet-timer" id="cometTimer"> 10:00</div>
+
+  <button class="event-comet-btn ui-click" id="cometEventBtn">
+    <img src="EventCometIcon.png" alt="Comet Event" />
+  </button>
 
   <div class="crystal-bar" id="crystalBar">
     <img src="CrystalIcon.png" alt="Crystal" />
@@ -152,6 +159,13 @@
         </div>
         <div class="toggle on ui-click" id="soundToggle"></div>
       </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">MUSIC</div>
+          <div class="setting-desc">Lobby background music</div>
+        </div>
+        <div class="toggle on ui-click" id="musicToggle"></div>
+      </div>
       <div class="setting-row" style="flex-direction:column;align-items:stretch;">
         <div>
           <div class="setting-label">PROMO CODE</div>
@@ -183,18 +197,6 @@
       </div>
       <div id="authBlock">
         <div class="recovery-block">
-          <div class="recovery-title">YOUR RECOVERY CODE</div>
-          <div class="recovery-code" id="recoveryCode">--------</div>
-          <div class="recovery-hint">Save this code to restore progress!</div>
-          <button class="recovery-btn ui-click" id="copyCodeBtn">COPY CODE</button>
-        </div>
-        <div class="recovery-block">
-          <div class="recovery-title">RESTORE PROGRESS</div>
-          <input type="text" class="name-input" id="restoreInput" placeholder="XXXX-XXXX" maxlength="9"
-            style="text-transform:uppercase;letter-spacing:2px;text-align:center;" />
-          <button class="recovery-btn ui-click" id="restoreBtn">RESTORE</button>
-        </div>
-        <div class="recovery-block">
           <div class="recovery-title">SAVE FILE</div>
           <div class="recovery-hint">Export your progress to a file or import it back later</div>
           <button class="recovery-btn ui-click" id="exportSaveBtn">EXPORT SAVE</button>
@@ -217,6 +219,43 @@
     </div>
   </div>
 
+  <!-- ========== COMET EVENT ========== -->
+  <div class="menu comet-event-menu" id="cometEventMenu">
+    <div class="menu-header">
+      <div class="menu-title">COMET EVENT</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content">
+      <div class="comet-event-card">
+        <img class="comet-event-icon" src="EventCometIcon.png" alt="Comet" />
+        <div>
+          <div class="comet-event-title">STELL BALANCE</div>
+          <div class="comet-stell-row"><img src="Stell.png" alt="Stell" /><span id="stellText">0</span></div>
+        </div>
+      </div>
+      <div class="comet-event-card comet-shop-card">
+        <img class="comet-event-icon" src="StellEgg1.png" alt="Cosmic Egg" />
+        <div class="comet-shop-info">
+          <div class="comet-event-title">COSMIC EGG</div>
+          <div class="comet-event-desc">Costs 100 Stell. Opens in 3 stages. Contains 10 Stell pets.</div>
+          <div class="stell-chance-list" id="stellChanceList">
+            <div><b>Common</b>: Stell Slime 33%, Stell Pup 18%, Stell Mushroom 18%</div>
+            <div><b>Rare</b>: Comet Fox 12%, Moon Bunny 14.8899%</div>
+            <div><b>Epic</b>: Nebula Cat 3.5%</div>
+            <div><b>Legendary</b>: Stell Drac 0.1%, Stell Phoenix 0.5%</div>
+            <div><b>Mythic</b>: Stell Angel Demon 0.01%</div>
+            <div><b>Atomic</b>: Atomic Super Cat 0.0001%</div>
+          </div>
+          <div class="comet-shop-actions">
+            <button class="recovery-btn ui-click" id="buyStellEgg1">OPEN 1</button>
+            <button class="recovery-btn ui-click" id="buyStellEgg10">OPEN 10</button>
+            <button class="recovery-btn ui-click" id="buyStellEgg100">OPEN 100</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== CHAT ========== -->
   <div class="menu chat-menu" id="chatMenu">
     <div class="menu-header">
@@ -230,6 +269,48 @@
       <div class="chat-input-row">
         <input type="text" class="name-input" id="chatInput" placeholder="Message..." maxlength="120" />
         <button class="recovery-btn ui-click" id="chatSendBtn">SEND</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TRADES ========== -->
+  <div class="menu trade-menu" id="tradeMenu">
+    <div class="menu-header">
+      <div class="menu-title">TRADES</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="shop-tabs trade-tabs">
+      <button class="shop-tab active ui-click" data-trade-tab="plaza">PLAZA</button>
+      <button class="shop-tab ui-click" data-trade-tab="players">PLAYERS</button>
+    </div>
+    <div class="menu-content trade-content">
+      <div class="trade-tab-panel active" data-trade-panel="plaza">
+        <div class="trade-block">
+          <div class="trade-title">SELL PET IN TRADING PLAZA</div>
+          <select class="name-input" id="plazaPetSelect"></select>
+          <input type="text" class="name-input smart-num-input" id="plazaFishPriceInput" placeholder="Fish price (0, 10K...)" value="0" />
+          <input type="text" class="name-input smart-num-input" id="plazaPriceInput" placeholder="Amethyst price (0, 10...)" value="0" />
+          <input type="text" class="name-input smart-num-input" id="plazaStellPriceInput" placeholder="Stell price (0, 10...)" value="0" />
+          <button class="recovery-btn ui-click" id="plazaListBtn">LIST FOR SALE</button>
+        </div>
+        <div class="trade-block">
+          <div class="trade-title">MARKET</div>
+          <div id="plazaListings"><div class="top-loading">Loading...</div></div>
+        </div>
+        <div class="trade-block">
+          <div class="trade-title">MY SALES</div>
+          <div id="plazaMySales"><div class="top-loading">Loading...</div></div>
+        </div>
+      </div>
+      <div class="trade-tab-panel" data-trade-panel="players">
+        <div class="trade-block">
+          <div class="trade-title">ACTIVE PLAYERS</div>
+          <div id="activePlayersList"><div class="top-loading">Loading...</div></div>
+        </div>
+        <div class="trade-block">
+          <div class="trade-title">TRADE REQUESTS</div>
+          <div id="tradeRequestsList"><div class="top-loading">Loading...</div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -284,6 +365,11 @@
           <input type="text" class="admin-input smart-num-input" id="adminCustomCrystal" placeholder="±crystals (10, 100...)" />
           <button class="admin-btn crystal-admin ui-click" id="adminCustomCrystalBtn">ADD</button>
         </div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input smart-num-input" id="adminCustomStell" placeholder="±Stell (10, 1K...)" />
+          <button class="admin-btn amethyst-admin ui-click" id="adminCustomStellBtn">ADD STELL</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminStellAllBtn">STELL ALL</button>
+        </div>
       </div>
       <div class="admin-section">
         <div class="admin-label">YOURSELF — CUSTOM VALUES</div>
@@ -311,7 +397,8 @@
         <div class="admin-label">YOURSELF — SPECIAL WAVES</div>
         <div class="admin-row">
           <button class="admin-btn rainbow-admin ui-click" id="adminRainbowWave">RAINBOW x100</button>
-          <button class="admin-btn amethyst-admin ui-click" id="adminAmethystWave">AMETHYST x100</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminAmethystWave">AMETHYST EVENT</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminCometEvent">COMET EVENT</button>
         </div>
       </div>
       <div class="admin-section admin-pets-section">
@@ -328,8 +415,26 @@
           </select>
           <input type="text" class="admin-input smart-num-input" id="adminPetCount" placeholder="count" value="1" />
         </div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminEggPetType">
+            <option value="stellangeldemon">Stell Angel Demon Egg</option>
+            <option value="atomicsupercat">Atomic Super Cat Egg</option>
+            <option value="stelldrac">Stell Drac Egg</option>
+            <option value="stellphoenix">Stell Phoenix Egg</option>
+            <option value="imperialcat">Imperial Cat Egg</option>
+            <option value="goldpegasus">Gold Pegasus Egg</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminEggCount" placeholder="egg count" value="1" />
+        </div>
         <div class="admin-row">
           <button class="admin-btn ui-click" id="adminGivePetSelf">GIVE PET SELF</button>
+          <button class="admin-btn ui-click" id="adminGivePetAll">GIVE PET ALL</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminGiveEggSelf">EGG SELF</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminGiveEggAll">EGG ALL</button>
+          <button class="admin-btn gold-admin ui-click" id="adminGiveVipSelf">VIP SELF</button>
+          <button class="admin-btn gold-admin ui-click" id="adminGiveVipAll">VIP ALL</button>
+          <button class="admin-btn danger-admin ui-click" id="adminGiveImperialSelf">IMPERIAL SELF</button>
+          <button class="admin-btn danger-admin ui-click" id="adminGiveImperialAll">IMPERIAL ALL</button>
           <button class="admin-btn gold-admin ui-click" id="adminLuck10Self">x10 LUCK SELF</button>
           <button class="admin-btn gold-admin ui-click" id="adminLuck10All">x10 LUCK ALL</button>
         </div>
@@ -369,6 +474,7 @@
           <div class="admin-row">
             <button class="admin-btn rainbow-admin ui-click" id="adminRewardAllRainbow"> RAINBOW ALL</button>
             <button class="admin-btn amethyst-admin ui-click" id="adminRewardAllAmethyst"> AMETHYST ALL</button>
+            <button class="admin-btn amethyst-admin ui-click" id="adminRewardAllComet"> COMET ALL</button>
           </div>
         </div>
       </div>
@@ -487,8 +593,9 @@
     });
   </script>
 
+  <script charset="UTF-8" src="Upgrades.js"></script>
   <script charset="UTF-8" src="game.js"></script>
   <script charset="UTF-8" src="admin.js"></script>
   <script charset="UTF-8" src="Pet.js"></script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ff25d370ffae7b0',t:'MTc3OTM1Mzc0Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>

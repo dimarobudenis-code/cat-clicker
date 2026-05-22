@@ -1,7 +1,11 @@
 (function () {
   const LOCAL_SAVE_KEY = "catclicker_save";
-  const MAX_PETS = 100;
+  const BASE_MAX_PETS = 100;
+  const MAX_PETS = 100; // legacy fallback; dynamic limit is state.inventorySlots
   const MAX_EQUIPPED = 3;
+  const MAX_INVENTORY_SLOTS = 10000;
+  const SLOT_BASE_PRICE = 100;
+  const SLOT_PRICE_MULT = 1.2;
   const EGG_COST = 10;
 
   const RARITY_META = {
@@ -9,7 +13,10 @@
     Rare: { color: "#60a5fa", badge: "RARE", glow: "#60a5fa" },
     Epic: { color: "#c084fc", badge: "EPIC", glow: "#c084fc" },
     Legendary: { color: "#fbbf24", badge: "LEGENDARY", glow: "#ffd700" },
-    VIP: { color: "#ffd700", badge: "VIP", glow: "#ffd700" }
+    VIP: { color: "#ffd700", badge: "VIP", glow: "#ffd700" },
+    Imperial: { color: "#ff3333", badge: "IMPERIAL", glow: "#ff0000" },
+    Mythic: { color: "#ff3df2", badge: "MYTHIC", glow: "#ff00ff" },
+    Atomic: { color: "#66ffcc", badge: "ATOMIC", glow: "#00ffaa" }
   };
 
   /* ---- \u0420\u0435\u0434\u043A\u043E\u0441\u0442\u043D\u044B\u0435 \u043C\u043D\u043E\u0436\u0438\u0442\u0435\u043B\u0438 \u0434\u043B\u044F \u044D\u043A\u0438\u043F\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0445 \u043F\u0435\u0442\u043E\u0432 ---- */
@@ -18,8 +25,28 @@
     Rare: { fishMult: 0.5, autoMult: 0.5, luckMult: 0.25, crystalsPerMin: 0 },
     Epic: { fishMult: 1.0, autoMult: 1.0, luckMult: 0.5, crystalsPerMin: 2 },
     Legendary: { fishMult: 2.0, autoMult: 2.0, luckMult: 1.0, crystalsPerMin: 5 },
-    VIP: { fishMult: 4.0, autoMult: 0.5, luckMult: 2.0, crystalsPerMin: 5 }
+    VIP: { fishMult: 4.0, autoMult: 0.5, luckMult: 2.0, crystalsPerMin: 5 },
+    Imperial: { fishMult: 99.0, autoMult: 0, luckMult: 9.0, crystalsPerMin: 50 },
+    Mythic: { fishMult: 0, autoMult: 0, luckMult: 0, crystalsPerMin: 0 },
+    Atomic: { fishMult: 0, autoMult: 0, luckMult: 0, crystalsPerMin: 0 }
   };
+
+  const PET_CUSTOM_STATS = {
+    stellslime: { fishMult: 0.2, autoMult: 0.15, luckMult: 0.05, crystalsPerMin: 0 },
+    stellpup: { fishMult: 0.25, autoMult: 0.15, luckMult: 0.05, crystalsPerMin: 0 },
+    stellmushroom: { fishMult: 0.15, autoMult: 0.25, luckMult: 0.05, crystalsPerMin: 0 },
+    stellcometfox: { fishMult: 0.8, autoMult: 0.7, luckMult: 0.25, crystalsPerMin: 1 },
+    stellmoonbunny: { fishMult: 0.9, autoMult: 0.8, luckMult: 0.3, crystalsPerMin: 1 },
+    stellnebulacat: { fishMult: 3.0, autoMult: 2.5, luckMult: 1.2, crystalsPerMin: 8 },
+    stelldrac: { fishMult: 6.0, autoMult: 4.0, luckMult: 2.0, crystalsPerMin: 15 },
+    stellphoenix: { fishMult: 8.0, autoMult: 5.0, luckMult: 2.5, crystalsPerMin: 20 },
+    stellangeldemon: { fishMult: 20.0, autoMult: 10.0, luckMult: 6.0, crystalsPerMin: 60 },
+    atomicsupercat: { fishMult: 50.0, autoMult: 20.0, luckMult: 15.0, crystalsPerMin: 500, stellPerMin: 100 }
+  };
+
+  function getPetStatsMeta(pet) {
+    return PET_CUSTOM_STATS[pet?.key] || RARITY_STATS[pet?.rarity] || RARITY_STATS.Common;
+  }
 
   const PET_POOL = [
     { key: "cat", name: "Cat", rarity: "Common", icon: "CatPet.png", weight: 40, sellPrice: 3 },
@@ -30,8 +57,25 @@
   ];
 
   const SPECIAL_PETS = [
-    { key: "goldpegasus", name: "Gold Pegasus", rarity: "VIP", icon: "GoldPegasus.png", weight: 0, sellPrice: 0, unsellable: true, locked: true, vipOnly: true }
+    { key: "goldpegasus", name: "Gold Pegasus", rarity: "VIP", icon: "GoldPegasus.png", weight: 0, sellPrice: 0, unsellable: true, locked: true, vipOnly: true },
+    { key: "imperialcat", name: "Imperial Cat", rarity: "Imperial", icon: "ImperialCat.png", weight: 0, sellPrice: 0, unsellable: true, locked: true, imperialOnly: true }
   ];
+
+  const STELL_PET_POOL = [
+    { key: "stellslime", name: "Stell Slime", rarity: "Common", icon: "StellSlime.png", weight: 330000, sellPrice: 10 },
+    { key: "stellpup", name: "Stell Pup", rarity: "Common", icon: "StellPup.png", weight: 180000, sellPrice: 10 },
+    { key: "stellmushroom", name: "Stell Mushroom", rarity: "Common", icon: "StellMushroom.png", weight: 180000, sellPrice: 10 },
+    { key: "stellcometfox", name: "Comet Fox", rarity: "Rare", icon: "StellCometFox.png", weight: 120000, sellPrice: 100 },
+    { key: "stellmoonbunny", name: "Moon Bunny", rarity: "Rare", icon: "StellMoonBunny.png", weight: 148899, sellPrice: 150 },
+    { key: "stellnebulacat", name: "Nebula Cat", rarity: "Epic", icon: "StellNebulaCat.png", weight: 35000, sellPrice: 500 },
+    { key: "stelldrac", name: "Stell Drac", rarity: "Legendary", icon: "StellDrac.png", weight: 1000, sellPrice: 1000 },
+    { key: "stellphoenix", name: "Stell Phoenix", rarity: "Legendary", icon: "StellPhoenix.png", weight: 5000, sellPrice: 5000 },
+    { key: "stellangeldemon", name: "Stell Angel Demon", rarity: "Mythic", icon: "StellAngelDemon.png", weight: 100, sellPrice: 10000 },
+    { key: "atomicsupercat", name: "Atomic Super Cat", rarity: "Atomic", icon: "AtomicSuperCat.png", weight: 1, sellPrice: 100000 },
+  ];
+
+  const HATCH_ANIMATION_RARITIES = ["Common", "Rare", "Epic", "Legendary", "Mythic", "Atomic", "VIP", "Imperial"];
+  const DEFAULT_SKIP_ANIMATIONS = { Common: true, Rare: true, Epic: true, Legendary: false, Mythic: false, Atomic: false, VIP: false, Imperial: false };
 
   const state = {
     activeTab: "eggs",
@@ -40,12 +84,25 @@
     hatch: null,
     eggsOpenedTotal: 0,
     skipHatchAnimation: false,
-    adminLuckUntil: 0
+    adminLuckUntil: 0,
+    inventorySlots: BASE_MAX_PETS,
+    autoSellRarities: {},
+    skipAnimationRarities: { ...DEFAULT_SKIP_ANIMATIONS },
+    atomicClicks: 0,
+    atomicActiveUntil: 0,
+    atomicEggLuckCharges: 0,
+    ownedSkins: { kingcat: false },
+    activeSkin: null
   };
 
   const refs = {};
   let equippedBarRefs = {};
+  let hatchFxToken = 0;
 
+  const CAT_SKINS = [
+    { key: "default", name: "Default Cat", icon: "CatIcon1.png", desc: "Original cat", defaultOwned: true },
+    { key: "kingcat", name: "King Cat", icon: "KingCatIcon.png", desc: "Imperial owner skin", defaultOwned: false }
+  ];
   /* ==========================================================
      \u041F\u0423\u0411\u041B\u0418\u0427\u041D\u042B\u0419 API — window.petSystemApi
      ========================================================== */
@@ -53,23 +110,40 @@
     const api = {
       getFishMultiplier() {
         return 1 + state.inventory
-          .filter(p => p.equipped || p.vipOnly)
-          .reduce((sum, p) => sum + (RARITY_STATS[p.rarity]?.fishMult || 0), 0);
+          .filter(p => p.equipped || p.vipOnly || p.imperialOnly)
+          .reduce((sum, p) => sum + (getPetStatsMeta(p).fishMult || 0), 0);
       },
       getAutoSpeedMultiplier() {
         return 1 + state.inventory
-          .filter(p => p.equipped || p.vipOnly)
-          .reduce((sum, p) => sum + (RARITY_STATS[p.rarity]?.autoMult || 0), 0);
+          .filter(p => p.equipped || p.vipOnly || p.imperialOnly)
+          .reduce((sum, p) => sum + (getPetStatsMeta(p).autoMult || 0), 0);
       },
       getLuckMultiplier() {
         return 1 + state.inventory
-          .filter(p => p.equipped || p.vipOnly)
-          .reduce((sum, p) => sum + (RARITY_STATS[p.rarity]?.luckMult || 0), 0);
+          .filter(p => p.equipped || p.vipOnly || p.imperialOnly)
+          .reduce((sum, p) => sum + (getPetStatsMeta(p).luckMult || 0), 0);
       },
       getPassiveCrystalsPerMinute() {
         return state.inventory
-          .filter(p => p.equipped || p.vipOnly)
-          .reduce((sum, p) => sum + (RARITY_STATS[p.rarity]?.crystalsPerMin || 0), 0);
+          .filter(p => p.equipped || p.vipOnly || p.imperialOnly)
+          .reduce((sum, p) => sum + (getPetStatsMeta(p).crystalsPerMin || 0), 0);
+      },
+      getPassiveStellPerMinute() {
+        return state.inventory
+          .filter(p => p.equipped || p.vipOnly || p.imperialOnly)
+          .reduce((sum, p) => sum + (getPetStatsMeta(p).stellPerMin || 0), 0);
+      },
+      hasAtomicPet() {
+        return state.inventory.some(p => p.key === "atomicsupercat" && (p.equipped || p.key === "atomicsupercat"));
+      },
+      onAtomicClick() {
+        return onAtomicClick();
+      },
+      getAtomicFishMultiplier() {
+        return getAtomicFishMultiplier();
+      },
+      getAtomicAutoSpeedMultiplier() {
+        return getAtomicAutoSpeedMultiplier();
       },
       getEggsOpened() {
         return state.eggsOpenedTotal;
@@ -77,8 +151,31 @@
       getEquippedPets() {
         return state.inventory.filter(p => p.equipped);
       },
+      getTradablePets() {
+        return state.inventory
+          .map(p => ({ id: p.id, key: p.key, name: p.name, rarity: p.rarity, icon: p.icon, sellPrice: p.sellPrice, vipOnly: !!p.vipOnly, imperialOnly: !!p.imperialOnly }));
+      },
+      removePetForTrade(petId) {
+        return removePetForTrade(petId);
+      },
+      addPetFromTrade(petData) {
+        return addPetFromTrade(petData);
+      },
+      getSaveData() {
+        return serializePetState();
+      },
+      applySaveData(raw) {
+        loadPetState(raw);
+        renderAll();
+      },
       getPetPool() {
         return PET_POOL.map(p => ({ key: p.key, name: p.name, rarity: p.rarity, icon: p.icon }));
+      },
+      getStellPetPool() {
+        return STELL_PET_POOL.map(p => ({ key: p.key, name: p.name, rarity: p.rarity, icon: p.icon, chance: p.weight / 10000 }));
+      },
+      openStellEgg(count = 1) {
+        return openStellEgg(count);
       },
       adminAddPets(petKey = "random", count = 1, options = {}) {
         return adminAddPets(petKey, count, options);
@@ -89,8 +186,20 @@
       grantVipPet() {
         return grantVipPet();
       },
+      grantImperialPet() {
+        return grantImperialPet();
+      },
+      grantSkin(skinKey) {
+        return grantSkin(skinKey);
+      },
+      openForcedPetEgg(petKey, count = 1) {
+        return openForcedPetEgg(petKey, count);
+      },
       hasVipPet() {
         return state.inventory.some(p => p.key === "goldpegasus");
+      },
+      hasImperialPet() {
+        return state.inventory.some(p => p.key === "imperialcat");
       },
       getAdminLuckMultiplier() {
         return getAdminLuckMultiplier();
@@ -123,6 +232,7 @@
 
     injectStyles();
     buildUi();
+    buildAutoSellSettingsUi();
     buildEquippedBar();
     patchCoreFunctions();
     loadPetStateFromCurrentSave();
@@ -130,6 +240,8 @@
     renderAll();
     buildPetApi();
     if (window.gameState && window.gameState.vipActive) grantVipPet();
+    if (window.gameState && window.gameState.imperialActive) { grantImperialPet(); grantSkin("kingcat"); }
+    applyActiveSkin();
     if (!window.__petLuckTimerStarted) {
       window.__petLuckTimerStarted = true;
       setInterval(() => {
@@ -754,6 +866,79 @@
         background: #4ade80;
         color: #000;
       }
+      .pet-slot-buy-row,
+      .pet-autosell-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+      }
+      .pet-slot-buy-row .pet-action-btn {
+        font-size: 7px;
+        padding: 10px 6px;
+      }
+      .pet-autosell-settings {
+        background: #2a2a4a;
+        border: 2px solid #3a3a5a;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .pet-autosell-title {
+        color: #ffd700;
+        font-size: 9px;
+      }
+      .pet-autosell-hint {
+        color: #888;
+        font-size: 6px;
+        line-height: 1.5;
+      }
+      .pet-autosell-toggle {
+        border: 2px solid #3a3a5a;
+        background: #171225;
+        color: #888;
+        padding: 9px 6px;
+        font-family: inherit;
+        font-size: 7px;
+        cursor: pointer;
+      }
+      .pet-autosell-toggle.on {
+        border-color: #ff6666;
+        color: #ff9999;
+        box-shadow: 0 0 10px rgba(255, 68, 68, .18);
+      }
+      .pet-autosold-label {
+        color: #ffd700;
+        font-size: 8px;
+        text-align: center;
+        line-height: 1.5;
+      }
+      .pet-skins-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+      }
+      .pet-skin-card {
+        background: #221a35;
+        border: 2px solid #3a3a5a;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+        text-align: center;
+      }
+      .pet-skin-card.active { border-color: #4ade80; box-shadow: 0 0 14px rgba(74,222,128,.22); }
+      .pet-skin-card.locked { opacity: .55; }
+      .pet-skin-card img {
+        width: 96px;
+        height: 96px;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+      .pet-skin-name { color: #fff; font-size: 9px; }
+      .pet-skin-desc { color: #888; font-size: 6px; line-height: 1.5; }
       .pet-luck-line {
         color: #ffd700;
         font-size: 8px;
@@ -1040,8 +1225,12 @@
       petBtn.innerHTML = `<img src="ShopPet.png" alt="Pets" />`;
       bottomButtons.appendChild(petBtn);
     }
-    const petImg = petBtn.querySelector("img");
-    if (petImg) petImg.onerror = () => { petBtn.textContent = "PETS"; petBtn.classList.add("pet-text-btn"); };
+    // Keep the real image button. Do not replace it with text on loading errors:
+    // some mobile editors/WebViews fire false image errors and then the icon disappears.
+    if (!petBtn.querySelector("img")) {
+      petBtn.classList.remove("pet-text-btn");
+      petBtn.innerHTML = `<img src="ShopPet.png" alt="Pets" />`;
+    }
 
     const oldPetMenu = document.getElementById("petMenu");
     if (oldPetMenu) oldPetMenu.remove();
@@ -1057,6 +1246,7 @@
       <div class="shop-tabs pet-tabs">
         <button class="shop-tab active ui-click" data-pet-tab="eggs">EGGS</button>
         <button class="shop-tab ui-click" data-pet-tab="inventory">INVENTORY</button>
+        <button class="shop-tab ui-click" data-pet-tab="skins">SKINS</button>
       </div>
       <div class="menu-content">
         <div class="pet-tab-panel active" data-pet-panel="eggs">
@@ -1070,10 +1260,17 @@
             <div class="pet-buy-row">
               <button class="pet-action-btn ui-click" id="buyPetEgg1">BUY 1 EGG</button>
               <button class="pet-action-btn ui-click" id="buyPetEgg10">BUY 10 EGGS</button>
+              <button class="pet-action-btn ui-click" id="buyPetEgg100">BUY 100 EGGS</button>
               <button class="pet-action-btn ui-click" id="petSkipHatchBtn">SKIP ANIMATION: OFF</button>
             </div>
             <div class="pet-luck-line" id="petLuckLine"></div>
             <div class="pet-egg-subtitle" id="petEggMetaText"></div>
+            <div class="pet-slot-buy-row">
+              <button class="pet-action-btn ui-click" id="buyPetSlot1">+1 SLOT</button>
+              <button class="pet-action-btn ui-click" id="buyPetSlot10">+10 SLOTS</button>
+              <button class="pet-action-btn ui-click" id="buyPetSlot100">+100 SLOTS</button>
+            </div>
+            <div class="pet-egg-subtitle" id="petSlotMetaText"></div>
             <div class="pet-info-grid" id="petPoolGrid"></div>
           </div>
         </div>
@@ -1085,6 +1282,13 @@
               <div class="pet-inventory-grid" id="petInventoryGrid"></div>
             </div>
             <div class="pet-detail-panel" id="petDetailPanel"></div>
+          </div>
+        </div>
+        <div class="pet-tab-panel" data-pet-panel="skins">
+          <div class="pet-inventory-panel">
+            <div class="pet-panel-title">CAT SKINS</div>
+            <div class="pet-panel-sub">Skins change the main clickable cat.</div>
+            <div class="pet-skins-grid" id="petSkinsGrid"></div>
           </div>
         </div>
       </div>
@@ -1133,12 +1337,18 @@
     refs.tabPanels = Array.from(petMenu.querySelectorAll("[data-pet-panel]"));
     refs.buy1 = petMenu.querySelector("#buyPetEgg1");
     refs.buy10 = petMenu.querySelector("#buyPetEgg10");
+    refs.buy100 = petMenu.querySelector("#buyPetEgg100");
     refs.skipHatchBtn = petMenu.querySelector("#petSkipHatchBtn");
+    refs.buySlot1 = petMenu.querySelector("#buyPetSlot1");
+    refs.buySlot10 = petMenu.querySelector("#buyPetSlot10");
+    refs.buySlot100 = petMenu.querySelector("#buyPetSlot100");
     refs.poolGrid = petMenu.querySelector("#petPoolGrid");
     refs.inventoryGrid = petMenu.querySelector("#petInventoryGrid");
     refs.inventoryCount = petMenu.querySelector("#petInventoryCount");
+    refs.skinsGrid = petMenu.querySelector("#petSkinsGrid");
     refs.detailPanel = petMenu.querySelector("#petDetailPanel");
     refs.eggMetaText = petMenu.querySelector("#petEggMetaText");
+    refs.slotMetaText = petMenu.querySelector("#petSlotMetaText");
     refs.luckLine = petMenu.querySelector("#petLuckLine");
     refs.hatchOverlay = hatchOverlay;
     refs.hatchFlash = hatchOverlay.querySelector("#petHatchFlash");
@@ -1161,6 +1371,60 @@
     refs.bulkGrid = hatchOverlay.querySelector("#petBulkGrid");
     refs.bulkEquipBestBtn = hatchOverlay.querySelector("#petBulkEquipBestBtn");
     refs.bulkCloseBtn = hatchOverlay.querySelector("#petBulkCloseBtn");
+  }
+
+  function buildAutoSellSettingsUi() {
+    const settingsContent = document.querySelector("#settingsMenu .menu-content");
+    if (!settingsContent || document.getElementById("petAutoSellSettings")) return;
+    const rarities = ["Common", "Rare", "Epic", "Legendary", "Mythic", "Atomic"];
+    const block = document.createElement("div");
+    block.className = "pet-autosell-settings";
+    block.id = "petAutoSellSettings";
+    block.innerHTML = `
+      <div class="pet-autosell-title">PET AUTO SELL</div>
+      <div class="pet-autosell-hint">Selected rarities will be sold automatically after hatching. VIP / Imperial pets are never auto-sold.</div>
+      <div class="pet-autosell-grid">
+        ${rarities.map(r => `<button type="button" class="pet-autosell-toggle ui-click" data-autosell-rarity="${r}">${r}</button>`).join("")}
+      </div>
+      <div class="pet-autosell-title" style="margin-top:6px;">SKIP HATCH ANIMATION</div>
+      <div class="pet-autosell-hint">Choose which rare animations will be skipped in bulk openings. Unchecked rarities must be opened manually.</div>
+      <div class="pet-autosell-grid">
+        ${HATCH_ANIMATION_RARITIES.map(r => `<button type="button" class="pet-autosell-toggle ui-click" data-skipanim-rarity="${r}">${r}</button>`).join("")}
+      </div>
+    `;
+    const resetBtn = document.getElementById("resetBtn");
+    if (resetBtn && resetBtn.parentNode === settingsContent) settingsContent.insertBefore(block, resetBtn);
+    else settingsContent.appendChild(block);
+    block.querySelectorAll("[data-autosell-rarity]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const rarity = btn.dataset.autosellRarity;
+        state.autoSellRarities[rarity] = !state.autoSellRarities[rarity];
+        renderAutoSellSettings();
+        saveAll();
+      });
+    });
+    block.querySelectorAll("[data-skipanim-rarity]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const rarity = btn.dataset.skipanimRarity;
+        state.skipAnimationRarities[rarity] = !state.skipAnimationRarities[rarity];
+        renderAutoSellSettings();
+        saveAll();
+      });
+    });
+    renderAutoSellSettings();
+  }
+
+  function renderAutoSellSettings() {
+    document.querySelectorAll("[data-autosell-rarity]").forEach(btn => {
+      const rarity = btn.dataset.autosellRarity;
+      btn.classList.toggle("on", !!state.autoSellRarities[rarity]);
+      btn.textContent = `${rarity}${state.autoSellRarities[rarity] ? " ✓" : ""}`;
+    });
+    document.querySelectorAll("[data-skipanim-rarity]").forEach(btn => {
+      const rarity = btn.dataset.skipanimRarity;
+      btn.classList.toggle("on", !!state.skipAnimationRarities[rarity]);
+      btn.textContent = `${rarity}${state.skipAnimationRarities[rarity] ? " SKIP" : " SHOW"}`;
+    });
   }
 
   /* ==========================================================
@@ -1216,7 +1480,11 @@
 
     refs.buy1.addEventListener("click", () => buyEggs(1));
     refs.buy10.addEventListener("click", () => buyEggs(10));
+    refs.buy100.addEventListener("click", () => buyEggs(100));
     refs.skipHatchBtn.addEventListener("click", toggleSkipHatchAnimation);
+    refs.buySlot1.addEventListener("click", () => buyInventorySlots(1));
+    refs.buySlot10.addEventListener("click", () => buyInventorySlots(10));
+    refs.buySlot100.addEventListener("click", () => buyInventorySlots(100));
 
     refs.inventoryGrid.addEventListener("click", (e) => {
       const slot = e.target.closest("[data-pet-id]");
@@ -1237,7 +1505,11 @@
     refs.hatchKeepBtn.addEventListener("click", advanceHatchSequence);
     refs.bulkEquipBestBtn.addEventListener("click", equipBestBulkPets);
     refs.bulkCloseBtn.addEventListener("click", () => {
-      closeHatchOverlay();
+      if (state.hatch && state.hatch.manualQueue && state.hatch.manualQueue.length) {
+        prepareNextHatchEgg();
+        return;
+      }
+      closeHatchOverlay(true);
       renderInventory();
       renderEggShop();
       updateEquippedBar();
@@ -1300,13 +1572,24 @@
       inventory: state.inventory.map((pet) => ({ ...pet })),
       eggsOpenedTotal: state.eggsOpenedTotal,
       skipHatchAnimation: state.skipHatchAnimation,
-      adminLuckUntil: state.adminLuckUntil
+      adminLuckUntil: state.adminLuckUntil,
+      inventorySlots: state.inventorySlots,
+      autoSellRarities: state.autoSellRarities,
+      skipAnimationRarities: state.skipAnimationRarities,
+      atomicClicks: state.atomicClicks,
+      atomicActiveUntil: state.atomicActiveUntil,
+      atomicEggLuckCharges: state.atomicEggLuckCharges,
+      ownedSkins: state.ownedSkins,
+      activeSkin: state.activeSkin
     };
   }
 
   function loadPetState(raw) {
+    state.inventorySlots = Math.max(BASE_MAX_PETS, Math.min(MAX_INVENTORY_SLOTS, raw && raw.inventorySlots || BASE_MAX_PETS));
+    state.autoSellRarities = raw && raw.autoSellRarities && typeof raw.autoSellRarities === "object" ? raw.autoSellRarities : {};
+    state.skipAnimationRarities = { ...DEFAULT_SKIP_ANIMATIONS, ...(raw && raw.skipAnimationRarities && typeof raw.skipAnimationRarities === "object" ? raw.skipAnimationRarities : {}) };
     const safeInventory = Array.isArray(raw && raw.inventory)
-      ? raw.inventory.slice(0, MAX_PETS).map(normalizePet).filter(Boolean)
+      ? raw.inventory.slice(0, Math.max(state.inventorySlots, BASE_MAX_PETS)).map(normalizePet).filter(Boolean)
       : [];
 
     let equippedCount = 0;
@@ -1324,11 +1607,17 @@
     state.eggsOpenedTotal = raw && raw.eggsOpenedTotal || 0;
     state.skipHatchAnimation = !!(raw && raw.skipHatchAnimation);
     state.adminLuckUntil = raw && raw.adminLuckUntil || 0;
+    state.atomicClicks = raw && raw.atomicClicks || 0;
+    state.atomicActiveUntil = raw && raw.atomicActiveUntil || 0;
+    state.atomicEggLuckCharges = raw && raw.atomicEggLuckCharges || 0;
+    state.ownedSkins = { kingcat: false, ...(raw && raw.ownedSkins || {}) };
+    state.activeSkin = raw && raw.activeSkin || null;
+    applyActiveSkin();
   }
 
   function normalizePet(pet) {
     if (!pet || typeof pet !== "object") return null;
-    const definition = [...PET_POOL, ...SPECIAL_PETS].find((item) => item.key === pet.key) || [...PET_POOL, ...SPECIAL_PETS].find((item) => item.name === pet.name);
+    const definition = [...PET_POOL, ...SPECIAL_PETS, ...STELL_PET_POOL].find((item) => item.key === pet.key) || [...PET_POOL, ...SPECIAL_PETS, ...STELL_PET_POOL].find((item) => item.name === pet.name);
     if (!definition) return null;
     return {
       id: pet.id || makePetId(),
@@ -1341,8 +1630,19 @@
       locked: !!pet.locked || !!definition.locked,
       unsellable: !!pet.unsellable || !!definition.unsellable,
       vipOnly: !!pet.vipOnly || !!definition.vipOnly,
+      imperialOnly: !!pet.imperialOnly || !!definition.imperialOnly,
+      noBoost: !!pet.noBoost || !!definition.noBoost,
       createdAt: pet.createdAt || Date.now()
     };
+  }
+
+  function refreshGameBonuses() {
+    try {
+      if (window.gameFns) {
+        if (typeof window.gameFns.updateIncome === "function") window.gameFns.updateIncome();
+        if (typeof window.gameFns.updateScore === "function") window.gameFns.updateScore();
+      }
+    } catch (e) {}
   }
 
   function renderAll() {
@@ -1350,7 +1650,10 @@
     renderEggShop();
     renderInventory();
     renderPoolCards();
+    renderSkins();
     updateEquippedBar();
+    renderAutoSellSettings();
+    refreshGameBonuses();
   }
 
   function renderTabs() {
@@ -1358,11 +1661,44 @@
     refs.tabPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.petPanel === state.activeTab));
   }
 
+  function getMaxPetSlots() {
+    return Math.max(BASE_MAX_PETS, Math.min(MAX_INVENTORY_SLOTS, state.inventorySlots || BASE_MAX_PETS));
+  }
+  function getBoughtSlotsCount() {
+    return Math.max(0, getMaxPetSlots() - BASE_MAX_PETS);
+  }
+  function getSlotPriceAt(index) {
+    return Math.floor(SLOT_BASE_PRICE * Math.pow(SLOT_PRICE_MULT, index));
+  }
+  function getSlotPackCost(count) {
+    let total = 0;
+    const start = getBoughtSlotsCount();
+    for (let i = 0; i < count; i++) total += getSlotPriceAt(start + i);
+    return total;
+  }
+  function buyInventorySlots(count) {
+    count = Math.max(1, Math.floor(count || 1));
+    const available = MAX_INVENTORY_SLOTS - getMaxPetSlots();
+    count = Math.min(count, available);
+    if (count <= 0) { notify("Max pet slots reached!", "#ff6666"); return; }
+    const cost = getSlotPackCost(count);
+    if (!window.gameState || window.gameState.score < cost) {
+      notify(`Need ${formatNum(cost)} fish for ${count} slot(s)!`, "#ff6666");
+      return;
+    }
+    window.gameState.score = window.gameState.score - cost;
+    state.inventorySlots = getMaxPetSlots() + count;
+    saveAll();
+    renderAll();
+    notify(`+${count} pet slot(s)!`, "#4ade80");
+  }
+
   function renderEggShop() {
     const freeSlots = getFreeSlots();
     const crystals = window.gameState.crystals;
     refs.buy1.disabled = crystals < EGG_COST || freeSlots < 1 || !!state.hatch;
     refs.buy10.disabled = crystals < EGG_COST * 10 || freeSlots < 10 || !!state.hatch;
+    refs.buy100.disabled = crystals < EGG_COST * 100 || freeSlots < 100 || !!state.hatch;
     if (refs.skipHatchBtn) {
       refs.skipHatchBtn.textContent = `SKIP ANIMATION: ${state.skipHatchAnimation ? "ON" : "OFF"}`;
       refs.skipHatchBtn.classList.toggle("skip-active", state.skipHatchAnimation);
@@ -1374,7 +1710,13 @@
         ? `LUCK x${formatLuck(luck)}${left > 0 ? ` • admin event ${formatDurationShort(left)} left` : ""}`
         : "";
     }
-    refs.eggMetaText.textContent = `You have ${formatNum(crystals)} amethysts • ${state.inventory.length}/${MAX_PETS} slots used • Equip up to ${MAX_EQUIPPED} pets`;
+    refs.eggMetaText.textContent = `You have ${formatNum(crystals)} amethysts • ${state.inventory.length}/${getMaxPetSlots()} slots used • Equip up to ${MAX_EQUIPPED} pets`;
+    if (refs.slotMetaText) {
+      const c1 = getSlotPackCost(1);
+      const c10 = getSlotPackCost(Math.min(10, MAX_INVENTORY_SLOTS - getMaxPetSlots()));
+      const c100 = getSlotPackCost(Math.min(100, MAX_INVENTORY_SLOTS - getMaxPetSlots()));
+      refs.slotMetaText.textContent = `Slots: ${getMaxPetSlots()} • +1 ${formatNum(c1)} fish • +10 ${formatNum(c10)} • +100 ${formatNum(c100)}`;
+    }
   }
 
   function renderPoolCards() {
@@ -1394,12 +1736,59 @@
     });
   }
 
+  function isSkinOwned(skin) {
+    return !!skin.defaultOwned || !!state.ownedSkins[skin.key];
+  }
+  function getActiveSkinDef() {
+    return CAT_SKINS.find(s => s.key === state.activeSkin && isSkinOwned(s)) || CAT_SKINS[0];
+  }
+  function applyActiveSkin() {
+    try {
+      const img = document.querySelector("#catBtn img");
+      if (img) img.src = getActiveSkinDef().icon;
+    } catch (e) {}
+  }
+  function grantSkin(skinKey) {
+    const skin = CAT_SKINS.find(s => s.key === skinKey);
+    if (!skin || skin.defaultOwned) return false;
+    state.ownedSkins[skinKey] = true;
+    if (!state.activeSkin) state.activeSkin = skinKey;
+    applyActiveSkin();
+    saveAll();
+    renderSkins();
+    return true;
+  }
+  function equipSkin(skinKey) {
+    const skin = CAT_SKINS.find(s => s.key === skinKey);
+    if (!skin || !isSkinOwned(skin)) return;
+    state.activeSkin = skin.key === "default" ? null : skin.key;
+    applyActiveSkin();
+    saveAll();
+    renderSkins();
+  }
+  function renderSkins() {
+    if (!refs.skinsGrid) return;
+    refs.skinsGrid.innerHTML = CAT_SKINS.map(skin => {
+      const owned = isSkinOwned(skin);
+      const active = getActiveSkinDef().key === skin.key;
+      return `
+        <div class="pet-skin-card ${owned ? "" : "locked"} ${active ? "active" : ""}">
+          <img src="${skin.icon}" alt="${skin.name}" />
+          <div class="pet-skin-name">${skin.name}</div>
+          <div class="pet-skin-desc">${skin.desc}${owned ? "" : " • Locked"}</div>
+          <button class="pet-action-btn ui-click" data-equip-skin="${skin.key}" ${owned ? "" : "disabled"}>${active ? "EQUIPPED" : "EQUIP"}</button>
+        </div>
+      `;
+    }).join("");
+    refs.skinsGrid.querySelectorAll("[data-equip-skin]").forEach(btn => btn.addEventListener("click", () => equipSkin(btn.dataset.equipSkin)));
+  }
+
   function renderInventory() {
     if (!state.selectedPetId && state.inventory[0]) state.selectedPetId = state.inventory[0].id;
-    refs.inventoryCount.textContent = `${state.inventory.length} / ${MAX_PETS} slots used • ${getEquippedCount()} / ${MAX_EQUIPPED} equipped`;
+    refs.inventoryCount.textContent = `${state.inventory.length} / ${getMaxPetSlots()} slots used • ${getEquippedCount()} / ${MAX_EQUIPPED} equipped`;
     refs.inventoryGrid.innerHTML = "";
 
-    const visibleSlots = Math.max(MAX_PETS, state.inventory.length);
+    const visibleSlots = Math.max(getMaxPetSlots(), state.inventory.length);
     for (let i = 0; i < visibleSlots; i++) {
       const pet = state.inventory[i];
       const slot = document.createElement("button");
@@ -1408,7 +1797,7 @@
         slot.className = "pet-slot empty";
         slot.innerHTML = `<span class="pet-slot-empty-text">+</span>`;
       } else {
-        slot.className = `pet-slot ${pet.equipped ? "equipped" : ""} ${pet.locked ? "locked" : ""} ${state.selectedPetId === pet.id ? "selected" : ""}`.trim();
+        slot.className = `pet-slot ${pet.equipped ? "equipped" : ""} ${pet.locked ? "locked" : ""} ${pet.rarity === "Imperial" ? "imperial-pet-slot" : ""} ${state.selectedPetId === pet.id ? "selected" : ""}`.trim();
         slot.dataset.petId = pet.id;
         slot.title = `${pet.name} • ${pet.rarity}`;
         slot.innerHTML = `<img src="${pet.icon}" alt="${pet.name}" />`;
@@ -1422,12 +1811,12 @@
   function renderPetDetails() {
     const pet = getSelectedPet();
     if (!pet) {
-      refs.detailPanel.innerHTML = `<div class="pet-detail-empty">Select a pet in your inventory.<br/>You can store up to ${MAX_PETS} pets.</div>`;
+      refs.detailPanel.innerHTML = `<div class="pet-detail-empty">Select a pet in your inventory.<br/>You can store up to ${getMaxPetSlots()} pets.</div>`;
       return;
     }
 
     const rarity = RARITY_META[pet.rarity] || RARITY_META.Common;
-    const stats = RARITY_STATS[pet.rarity] || RARITY_STATS.Common;
+    const stats = getPetStatsMeta(pet);
 
     const boostLines = [];
     if (stats.fishMult > 0) boostLines.push(`🐟 Fish +${(stats.fishMult * 100).toFixed(0)}%`);
@@ -1478,11 +1867,63 @@
     if (refs.menu) refs.menu.classList.remove("active");
   }
 
+  function getEggImage(stage) {
+    const imgs = state.hatch && state.hatch.eggImages;
+    return imgs && imgs[stage - 1] ? imgs[stage - 1] : `Egg${stage}.png`;
+  }
+
+  function openStellEgg(count = 1) {
+    const amount = Math.max(1, Math.min(100, parseInt(count, 10) || 1));
+    if (state.hatch) return { ok: false, error: "Already hatching" };
+    if (getFreeSlots() < amount) return { ok: false, error: `Need ${amount} free pet slots!` };
+    state.hatch = {
+      total: amount,
+      index: 0,
+      currentPet: null,
+      crackStage: 1,
+      revealing: false,
+      bulkPets: [],
+      pool: "stell",
+      eggImages: ["StellEgg1.png", "StellEgg2.png", "StellEgg3.png"]
+    };
+    openHatchOverlay();
+    if (state.skipHatchAnimation) revealInstantHatches(amount);
+    else prepareNextHatchEgg();
+    renderEggShop();
+    return { ok: true };
+  }
+
+  function openForcedPetEgg(petKey, count = 1) {
+    const amount = Math.max(1, Math.min(100, parseInt(count, 10) || 1));
+    if (state.hatch) return { ok: false, error: "Already hatching" };
+    if (getFreeSlots() < amount) return { ok: false, error: `Need ${amount} free pet slots!` };
+    const definition = getPetDefinitionByKey(petKey);
+    if (!definition) return { ok: false, error: "Unknown pet" };
+    const manualQueue = [];
+    for (let i = 0; i < amount; i++) manualQueue.push(createPetFromDefinition(definition));
+    state.hatch = {
+      total: manualQueue.length,
+      index: 0,
+      currentPet: null,
+      crackStage: 1,
+      revealing: false,
+      bulkPets: [],
+      pool: "forced",
+      eggImages: definition.key && definition.key.startsWith("stell") || definition.key === "atomicsupercat" ? ["StellEgg1.png", "StellEgg2.png", "StellEgg3.png"] : ["Egg1.png", "Egg2.png", "Egg3.png"],
+      manualQueue
+    };
+    openHatchOverlay();
+    prepareNextHatchEgg();
+    return { ok: true };
+  }
+
   function buyEggs(count) {
     const totalCost = EGG_COST * count;
     if (state.hatch) return;
-    if (getFreeSlots() < count) {
-      notify(`Need ${count} free pet slots!`, "#ff6666");
+    const autoSellEnabled = Object.values(state.autoSellRarities || {}).some(Boolean);
+    const requiredSlots = autoSellEnabled ? Math.min(count, Math.max(1, Math.ceil(count * 0.25))) : count;
+    if (getFreeSlots() < requiredSlots) {
+      notify(`Need ${requiredSlots} free pet slots! Auto-sell can reduce slot need.`, "#ff6666");
       return;
     }
     if (window.gameState.crystals < totalCost) {
@@ -1499,7 +1940,9 @@
       currentPet: null,
       crackStage: 1,
       revealing: false,
-      bulkPets: []
+      bulkPets: [],
+      pool: "normal",
+      eggImages: ["Egg1.png", "Egg2.png", "Egg3.png"]
     };
     openHatchOverlay();
     if (state.skipHatchAnimation) {
@@ -1515,11 +1958,23 @@
     refs.hatchOverlay.classList.add("active");
   }
 
-  function closeHatchOverlay() {
+  function hasActiveHatchWork() {
+    return !!(state.hatch && (state.hatch.revealing || state.hatch.currentPet || (state.hatch.manualQueue && state.hatch.manualQueue.length) || state.hatch.index < state.hatch.total));
+  }
+  function cleanupHatchSpecialEffects() {
+    hatchFxToken++;
+    if (refs.hatchOverlay) refs.hatchOverlay.classList.remove("mythic-hatch-mode", "atomic-hatch-mode", "reveal-pulse");
+    if (refs.hatchFlash) refs.hatchFlash.className = "pet-hatch-flash";
+    if (refs.hatchModal) refs.hatchModal.className = "pet-hatch-modal";
+    document.querySelectorAll(".atomic-orb-wrap").forEach(el => el.remove());
+  }
+  function closeHatchOverlay(force = false) {
+    if (!force && hasActiveHatchWork()) {
+      notify("Finish opening your rare egg(s) first!", "#ffd700");
+      return;
+    }
+    cleanupHatchSpecialEffects();
     refs.hatchOverlay.classList.remove("active");
-    refs.hatchOverlay.classList.remove("reveal-pulse");
-    refs.hatchFlash.classList.remove("active");
-    refs.hatchFlash.classList.remove("legendary-flash");
     if (refs.bulkResult) refs.bulkResult.classList.remove("active");
     clearHatchParticles();
     state.hatch = null;
@@ -1534,16 +1989,15 @@
     refs.hatchCounter.textContent = `EGG ${state.hatch.index} / ${state.hatch.total}`;
     refs.hatchStage.textContent = "MYSTERY EGG";
     refs.hatchTap.textContent = "Tap!";
-    refs.hatchImage.src = "Egg1.png";
+    refs.hatchImage.src = getEggImage(1);
     refs.hatchImage.className = "pet-hatch-image egg";
     refs.hatchImageWrap.style.display = "flex";
     refs.hatchImage.style.display = "block";
     refs.hatchResult.classList.remove("active");
+    refs.hatchEquipBtn.style.display = "";
+    refs.hatchSellBtn.style.display = "";
     if (refs.bulkResult) refs.bulkResult.classList.remove("active");
-    refs.hatchFlash.classList.remove("active");
-    refs.hatchFlash.classList.remove("legendary-flash");
-    refs.hatchOverlay.classList.remove("reveal-pulse");
-    refs.hatchModal.className = "pet-hatch-modal";
+    cleanupHatchSpecialEffects();
     refs.hatchAura.className = "pet-hatch-aura";
     clearHatchParticles();
   }
@@ -1553,7 +2007,7 @@
 
     if (state.hatch.crackStage === 1) {
       state.hatch.crackStage = 2;
-      refs.hatchImage.src = "Egg2.png";
+      refs.hatchImage.src = getEggImage(2);
       refs.hatchImage.className = "pet-hatch-image egg stage-two";
       refs.hatchTap.textContent = "Tap!";
       refs.hatchStage.textContent = "THE SHELL IS CRACKING";
@@ -1563,7 +2017,7 @@
 
     if (state.hatch.crackStage === 2) {
       state.hatch.crackStage = 3;
-      refs.hatchImage.src = "Egg3.png";
+      refs.hatchImage.src = getEggImage(3);
       refs.hatchImage.className = "pet-hatch-image egg stage-three";
       refs.hatchTap.textContent = "Tap!";
       refs.hatchStage.textContent = "ALMOST THERE";
@@ -1573,16 +2027,28 @@
 
     // \u0424\u0438\u043D\u0430\u043B\u044C\u043D\u044B\u0439 \u043A\u0440\u0430\u043A — \u0443\u0437\u043D\u0430\u0451\u043C \u0440\u0435\u0434\u043A\u043E\u0441\u0442\u044C \u0437\u0430\u0440\u0430\u043D\u0435\u0435
     state.hatch.revealing = true;
-    const upcomingPet = createRolledPet();
+    const upcomingPet = state.hatch.manualQueue && state.hatch.manualQueue.length ? state.hatch.manualQueue.shift() : createRolledPet();
     state.hatch._upcomingPet = upcomingPet;
 
     const rarityKey = upcomingPet.rarity;
     const isLegendary = rarityKey === "Legendary";
 
     refs.hatchTap.textContent = "";
-    refs.hatchStage.textContent = isLegendary ? "⚡ THE LEGENDARY EGG IS BREAKING ⚡" : "THE EGG IS BREAKING";
+    refs.hatchStage.textContent = rarityKey === "Atomic"
+      ? "⚛ ATOMIC REACTION DETECTED ⚛"
+      : (rarityKey === "Mythic" ? "⛧ MYTHIC DARKNESS IS RISING ⛧" : (isLegendary ? "⚡ THE LEGENDARY EGG IS BREAKING ⚡" : "THE EGG IS BREAKING"));
 
-    if (isLegendary) {
+    if (rarityKey === "Atomic") {
+      refs.hatchImage.className = "pet-hatch-image egg stage-three final-crack-atomic";
+      refs.hatchModal.className = "pet-hatch-modal atomic-shake";
+      triggerAtomicFlash();
+      animateEggCrack(34, ["#ffffff", "#9b5cff", "#050008"], true, "atomic");
+    } else if (rarityKey === "Mythic") {
+      refs.hatchImage.className = "pet-hatch-image egg stage-three final-crack-mythic";
+      refs.hatchModal.className = "pet-hatch-modal mythic-shake";
+      triggerMythicFlash();
+      animateEggCrack(56, ["#ff0000", "#000000", "#ff66ff", "#ffffff"], true, "mythic");
+    } else if (isLegendary) {
       refs.hatchImage.className = "pet-hatch-image egg stage-three final-crack-legendary";
       animateEggCrack(40, ["#ffd700", "#ffffff", "#ffaa00", "#fff4b0"], true, "legendary");
       refs.hatchModal.className = "pet-hatch-modal legendary-shake";
@@ -1598,7 +2064,7 @@
       animateEggCrack(22, ["#ffffff", "#d1d5db", "#9ca3af"], true, "common");
     }
 
-    setTimeout(() => revealHatchedPet(upcomingPet), isLegendary ? 380 : 230);
+    setTimeout(() => revealHatchedPet(upcomingPet), rarityKey === "Atomic" ? 1750 : (rarityKey === "Mythic" ? 820 : (isLegendary ? 380 : 230)));
   }
 
   function triggerLegendaryFlash() {
@@ -1611,7 +2077,41 @@
     }, 300);
   }
 
+  function triggerMythicFlash() {
+    const token = ++hatchFxToken;
+    refs.hatchOverlay.classList.add("mythic-hatch-mode");
+    refs.hatchFlash.className = "pet-hatch-flash mythic-flash";
+    setTimeout(() => {
+      if (token !== hatchFxToken) return;
+      refs.hatchFlash.classList.remove("mythic-flash");
+      void refs.hatchFlash.offsetWidth;
+      refs.hatchFlash.className = "pet-hatch-flash mythic-red-flash";
+    }, 420);
+  }
+
+  function triggerAtomicFlash() {
+    cleanupHatchSpecialEffects();
+    const token = ++hatchFxToken;
+    refs.hatchOverlay.classList.add("atomic-hatch-mode");
+    refs.hatchFlash.className = "pet-hatch-flash atomic-strobe-flash";
+
+    const wrap = document.createElement("div");
+    wrap.className = "atomic-orb-wrap";
+    wrap.innerHTML = `
+      <span class="atomic-orb atomic-orb-white"></span>
+      <span class="atomic-orb atomic-orb-purple"></span>
+    `;
+    refs.hatchOverlay.appendChild(wrap);
+    setTimeout(() => { if (token === hatchFxToken && wrap.parentNode) wrap.classList.add("spin-fast"); }, 520);
+    setTimeout(() => { if (token === hatchFxToken && wrap.parentNode) wrap.classList.add("spin-faster"); }, 980);
+  }
+
   function animateEggCrack(particleCount, palette, isFinal, rarityClass) {
+    try {
+      if (window.gameFns && window.gameFns.playEggCrackSound) {
+        window.gameFns.playEggCrackSound(isFinal ? 1.45 : 1);
+      }
+    } catch (e) {}
     animateOnce(refs.hatchImage, "tap-burst");
     animateOnce(refs.hatchModal, "shake");
     if (isFinal) animateOnce(refs.hatchOverlay, "reveal-pulse");
@@ -1631,6 +2131,8 @@
     if (rarityClass === "rare") { burstClass = "burst-rare"; sizeMin = 7; sizeMax = 12; }
     else if (rarityClass === "epic") { burstClass = "burst-epic"; sizeMin = 8; sizeMax = 14; }
     else if (rarityClass === "legendary") { burstClass = "burst-legendary"; sizeMin = 10; sizeMax = 18; }
+    else if (rarityClass === "mythic") { burstClass = "burst-legendary"; sizeMin = 12; sizeMax = 22; }
+    else if (rarityClass === "atomic") { burstClass = "burst-legendary"; sizeMin = 14; sizeMax = 26; }
 
     for (let i = 0; i < count; i++) {
       const particle = document.createElement("span");
@@ -1696,36 +2198,59 @@
     } catch (e) {}
   }
 
+  function shouldAutoSellPet(pet) {
+    if (!pet || pet.vipOnly || pet.imperialOnly || pet.unsellable) return false;
+    return !!state.autoSellRarities[pet.rarity];
+  }
+  function autoSellPetObject(pet) {
+    if (!pet || !window.gameState) return 0;
+    const amount = Math.max(0, Number(pet.sellPrice) || 0);
+    window.gameState.crystals += amount;
+    return amount;
+  }
+
   function revealHatchedPet(pet) {
     if (!state.hatch) return;
     // \u0415\u0441\u043B\u0438 pet \u043D\u0435 \u043F\u0435\u0440\u0435\u0434\u0430\u043D — \u0441\u043E\u0437\u0434\u0430\u0451\u043C \u043D\u043E\u0432\u044B\u0439 (\u043D\u043E \u043C\u044B \u043F\u0435\u0440\u0435\u0434\u0430\u0451\u043C \u0438\u0437 onHatchTap)
     const finalPet = pet || state.hatch._upcomingPet || createRolledPet();
-    state.inventory.push(finalPet);
-    state.selectedPetId = finalPet.id;
-    state.hatch.currentPet = finalPet;
+    const autoSold = shouldAutoSellPet(finalPet);
+    const autoSoldAmount = autoSold ? autoSellPetObject(finalPet) : 0;
+    if (!autoSold) {
+      state.inventory.push(finalPet);
+      state.selectedPetId = finalPet.id;
+      state.hatch.currentPet = finalPet;
+    } else {
+      state.hatch.currentPet = null;
+    }
     state.hatch.revealing = false;
     state.eggsOpenedTotal = (state.eggsOpenedTotal || 0) + 1;
     postPetHatchChat(finalPet);
 
     const rarityMeta = RARITY_META[finalPet.rarity] || RARITY_META.Common;
     const isLegendary = finalPet.rarity === "Legendary";
+    if (finalPet.rarity === "Atomic" || finalPet.rarity === "Mythic") cleanupHatchSpecialEffects();
+    try {
+      if (window.gameFns && window.gameFns.playEggRevealSound) window.gameFns.playEggRevealSound(finalPet.rarity);
+    } catch (e) {}
 
     // \u041C\u0435\u043D\u044F\u0435\u043C \u0430\u0443\u0440\u0443 \u043F\u043E\u0434 \u0440\u0435\u0434\u043A\u043E\u0441\u0442\u044C
     refs.hatchAura.className = `pet-hatch-aura rarity-${finalPet.rarity.toLowerCase()}`;
 
     refs.hatchImage.src = finalPet.icon;
-    refs.hatchImage.className = isLegendary
-      ? "pet-hatch-image pet reveal-legendary"
-      : "pet-hatch-image pet reveal-pop";
+    refs.hatchImage.className = finalPet.rarity === "Atomic"
+      ? "pet-hatch-image pet reveal-atomic"
+      : (finalPet.rarity === "Mythic" ? "pet-hatch-image pet reveal-mythic" : (isLegendary ? "pet-hatch-image pet reveal-legendary" : "pet-hatch-image pet reveal-pop"));
     refs.hatchStage.textContent = "YOU HATCHED";
     refs.hatchTap.textContent = "";
-    refs.hatchName.textContent = finalPet.name;
+    refs.hatchName.textContent = autoSold ? `${finalPet.name} • AUTO SOLD +${formatNum(autoSoldAmount)} amethysts` : finalPet.name;
     refs.hatchRarity.textContent = rarityMeta.badge;
     refs.hatchRarity.style.color = rarityMeta.color;
     refs.hatchResult.classList.add("active");
+    refs.hatchEquipBtn.style.display = autoSold ? "none" : "";
+    refs.hatchSellBtn.style.display = autoSold ? "none" : "";
     refs.hatchEquipBtn.textContent = state.hatch.index < state.hatch.total ? "EQUIP & NEXT" : "EQUIP";
     refs.hatchSellBtn.textContent = state.hatch.index < state.hatch.total ? "SELL & NEXT" : "SELL";
-    refs.hatchKeepBtn.textContent = state.hatch.index < state.hatch.total ? "KEEP & NEXT" : "KEEP";
+    refs.hatchKeepBtn.textContent = state.hatch.index < state.hatch.total ? (autoSold ? "NEXT" : "KEEP & NEXT") : (autoSold ? "OK" : "KEEP");
 
     // \u0424\u0438\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u0447\u0430\u0441\u0442\u0438\u0446\u044B \u043F\u043E \u0440\u0435\u0434\u043A\u043E\u0441\u0442\u0438
     const rarityClass = finalPet.rarity.toLowerCase();
@@ -1739,9 +2264,10 @@
     saveAll();
     renderInventory();
     updateEquippedBar();
+    refreshGameBonuses();
 
     // BUY 10: \u0438\u0433\u0440\u043E\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043F\u0435\u0440\u0432\u043E\u0435 \u044F\u0439\u0446\u043E, \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0435 \u0432\u044B\u043F\u0430\u0434\u0430\u044E\u0442 \u0441\u0440\u0430\u0437\u0443 \u0441\u043F\u0438\u0441\u043A\u043E\u043C.
-    if (state.hatch && state.hatch.total > 1 && state.hatch.index < state.hatch.total) {
+    if (state.hatch && !(state.hatch.manualQueue && state.hatch.manualQueue.length >= 0) && state.hatch.total > 1 && state.hatch.index < state.hatch.total) {
       setTimeout(() => {
         if (!state.hatch || state.hatch.index >= state.hatch.total) return;
         const firstStillExists = state.inventory.some((p) => p.id === finalPet.id);
@@ -1770,63 +2296,113 @@
 
   function advanceHatchSequence() {
     if (!state.hatch) return;
-    if (state.hatch.index < state.hatch.total) {
+    if (state.hatch.manualQueue && state.hatch.manualQueue.length) {
+      prepareNextHatchEgg();
+      return;
+    }
+    if (state.hatch.index < state.hatch.total && !(state.hatch.manualQueue && state.hatch.manualQueue.length === 0)) {
       revealRemainingHatchesInstantly();
       return;
     }
-    closeHatchOverlay();
+    closeHatchOverlay(true);
     renderInventory();
     renderEggShop();
     updateEquippedBar();
   }
 
+  function needsManualHatchAnimation(pet) {
+    // Manual animation only for ultra-rare drops. Epic/Rare stay in instant results
+    // so opening x100 does not lag or force dozens of animations.
+    return !!pet && HATCH_ANIMATION_RARITIES.includes(pet.rarity) && !state.skipAnimationRarities[pet.rarity];
+  }
+  function processHatchedPetToInventoryOrSell(pet) {
+    if (shouldAutoSellPet(pet)) {
+      pet.autoSold = true;
+      pet.autoSoldAmount = autoSellPetObject(pet);
+    } else {
+      state.inventory.push(pet);
+    }
+    postPetHatchChat(pet);
+  }
+  function prepareManualHatchQueue(manualPets, instantPets) {
+    const keptInstant = instantPets.filter(p => !p.autoSold);
+    if (keptInstant.length) state.selectedPetId = keptInstant[keptInstant.length - 1].id;
+    state.eggsOpenedTotal = (state.eggsOpenedTotal || 0) + instantPets.length;
+    if (instantPets.length) showBulkHatchResults(instantPets, `AUTO OPENED (${instantPets.length})`);
+    if (manualPets.length) {
+      state.hatch.total = manualPets.length;
+      state.hatch.index = 0;
+      state.hatch.manualQueue = manualPets;
+      state.hatch.bulkPets = instantPets;
+      notify(`${manualPets.length} rare egg(s) need manual opening!`, "#ffd700");
+      setTimeout(() => prepareNextHatchEgg(), instantPets.length ? 900 : 80);
+    } else {
+      state.hatch.index = state.hatch.total;
+      state.hatch.bulkPets = instantPets;
+      saveAll();
+      renderInventory();
+      updateEquippedBar();
+      refreshGameBonuses();
+      showBulkHatchResults(instantPets, `PETS HATCHED (${instantPets.length})`);
+    }
+  }
+
   function revealInstantHatches(count) {
     if (!state.hatch) return;
-    const pets = [];
+    const manualPets = [];
+    const instantPets = [];
     const amount = Math.min(count, getFreeSlots());
     for (let i = 0; i < amount; i++) {
       const pet = createRolledPet();
-      state.inventory.push(pet);
-      pets.push(pet);
-      postPetHatchChat(pet);
+      if (needsManualHatchAnimation(pet)) manualPets.push(pet);
+      else { processHatchedPetToInventoryOrSell(pet); instantPets.push(pet); }
     }
-    if (pets.length) state.selectedPetId = pets[pets.length - 1].id;
-    state.eggsOpenedTotal = (state.eggsOpenedTotal || 0) + pets.length;
-    state.hatch.index = state.hatch.total;
-    state.hatch.bulkPets = pets;
-    saveAll();
-    renderInventory();
-    updateEquippedBar();
-    showBulkHatchResults(pets, `PETS HATCHED (${pets.length})`);
+    prepareManualHatchQueue(manualPets, instantPets);
   }
 
   function revealRemainingHatchesInstantly(extraPets = []) {
     if (!state.hatch) return;
     const remaining = Math.max(0, state.hatch.total - state.hatch.index);
     if (remaining <= 0) {
-      closeHatchOverlay();
+      closeHatchOverlay(true);
       renderInventory();
       renderEggShop();
       updateEquippedBar();
       return;
     }
 
+    const manualPets = [];
     const pets = [];
     const amount = Math.min(remaining, getFreeSlots());
     for (let i = 0; i < amount; i++) {
       const pet = createRolledPet();
-      state.inventory.push(pet);
-      pets.push(pet);
-      postPetHatchChat(pet);
+      if (needsManualHatchAnimation(pet)) manualPets.push(pet);
+      else { processHatchedPetToInventoryOrSell(pet); pets.push(pet); }
     }
-    if (pets.length) state.selectedPetId = pets[pets.length - 1].id;
-    state.eggsOpenedTotal = (state.eggsOpenedTotal || 0) + pets.length;
     const shownPets = [...(Array.isArray(extraPets) ? extraPets : []), ...pets];
+    state.eggsOpenedTotal = (state.eggsOpenedTotal || 0) + pets.length;
+    if (manualPets.length) {
+      state.hatch.total = manualPets.length;
+      state.hatch.index = 0;
+      state.hatch.manualQueue = manualPets;
+      state.hatch.bulkPets = shownPets;
+      if (shownPets.length) showBulkHatchResults(shownPets, `AUTO OPENED (${shownPets.length})`);
+      notify(`${manualPets.length} rare egg(s) need manual opening!`, "#ffd700");
+      setTimeout(() => prepareNextHatchEgg(), shownPets.length ? 900 : 80);
+      saveAll();
+      renderInventory();
+      updateEquippedBar();
+      refreshGameBonuses();
+      return;
+    }
+    const keptPets = shownPets.filter(p => !p.autoSold);
+    if (keptPets.length) state.selectedPetId = keptPets[keptPets.length - 1].id;
     state.hatch.index = state.hatch.total;
     state.hatch.bulkPets = shownPets;
     saveAll();
     renderInventory();
     updateEquippedBar();
+    refreshGameBonuses();
     showBulkHatchResults(shownPets, `PETS HATCHED (${shownPets.length})`);
   }
 
@@ -1838,6 +2414,8 @@
     refs.hatchTap.textContent = "";
     refs.hatchImageWrap.style.display = "none";
     refs.hatchResult.classList.remove("active");
+    refs.hatchEquipBtn.style.display = "";
+    refs.hatchSellBtn.style.display = "";
     refs.bulkTitle.textContent = title || `PETS HATCHED (${pets.length})`;
     refs.bulkGrid.innerHTML = pets.map((pet) => {
       const rarity = RARITY_META[pet.rarity] || RARITY_META.Common;
@@ -1845,7 +2423,7 @@
         <div class="pet-bulk-card" style="border-color:${rarity.color};box-shadow:0 0 12px ${rarity.color}33;">
           <img src="${pet.icon}" alt="${pet.name}" />
           <div class="pet-bulk-name">${escapeHtml(pet.name)}</div>
-          <div class="pet-bulk-rarity" style="color:${rarity.color};">${rarity.badge}</div>
+          <div class="pet-bulk-rarity" style="color:${rarity.color};">${rarity.badge}${pet.autoSold ? ` • SOLD +${formatNum(pet.autoSoldAmount || 0)}` : ""}</div>
         </div>
       `;
     }).join("");
@@ -1867,6 +2445,7 @@
     saveAll();
     renderInventory();
     updateEquippedBar();
+    refreshGameBonuses();
     notify(equipped > 0 ? `Equipped ${equipped} best pet(s)!` : `No free equip slots!`, equipped > 0 ? "#4ade80" : "#ff6666");
   }
 
@@ -1895,17 +2474,25 @@
       locked: !!definition.locked,
       unsellable: !!definition.unsellable,
       vipOnly: !!definition.vipOnly,
+      imperialOnly: !!definition.imperialOnly,
+      noBoost: !!definition.noBoost,
       createdAt: Date.now()
     };
   }
 
   function getPetDefinitionByKey(petKey) {
-    return [...PET_POOL, ...SPECIAL_PETS].find((pet) => pet.key === petKey) || null;
+    return [...PET_POOL, ...SPECIAL_PETS, ...STELL_PET_POOL].find((pet) => pet.key === petKey) || null;
   }
 
   function rollPetDefinition() {
-    const luck = Math.max(1, getCurrentLuckMultiplier());
-    const weightedPool = PET_POOL.map((pet) => ({
+    let luck = Math.max(1, getCurrentLuckMultiplier());
+    const sourcePool = state.hatch && state.hatch.pool === "stell" ? STELL_PET_POOL : PET_POOL;
+    if (state.atomicEggLuckCharges > 0) {
+      luck *= 1000;
+      state.atomicEggLuckCharges -= 1;
+      saveAll();
+    }
+    const weightedPool = sourcePool.map((pet) => ({
       pet,
       weight: pet.rarity === "Common" ? pet.weight : pet.weight * luck
     }));
@@ -1915,7 +2502,7 @@
       roll -= item.weight;
       if (roll <= 0) return item.pet;
     }
-    return PET_POOL[PET_POOL.length - 1];
+    return (state.hatch && state.hatch.pool === "stell" ? STELL_PET_POOL : PET_POOL).slice(-1)[0];
   }
 
   function grantVipPet() {
@@ -1938,6 +2525,28 @@
     return { added: true, pet };
   }
 
+  function grantImperialPet() {
+    const existing = state.inventory.find((pet) => pet.key === "imperialcat");
+    if (existing) {
+      existing.locked = true;
+      existing.unsellable = true;
+      existing.imperialOnly = true;
+      grantSkin("kingcat");
+      saveAll();
+      renderAll();
+      return { added: false, pet: existing };
+    }
+    const definition = getPetDefinitionByKey("imperialcat");
+    if (!definition) return { added: false, pet: null };
+    const pet = createPetFromDefinition(definition);
+    state.inventory.push(pet);
+    state.selectedPetId = pet.id;
+    grantSkin("kingcat");
+    saveAll();
+    renderAll();
+    return { added: true, pet };
+  }
+
   function adminAddPets(petKey = "random", count = 1, options = {}) {
     const amount = Math.max(1, Math.min(MAX_PETS, parseInt(count, 10) || 1));
     const pets = [];
@@ -1946,7 +2555,7 @@
         ? rollPetDefinition()
         : getPetDefinitionByKey(petKey);
       if (!definition) break;
-      if (definition.vipOnly && state.inventory.some(p => p.key === definition.key)) continue;
+      if ((definition.vipOnly || definition.imperialOnly) && state.inventory.some(p => p.key === definition.key)) continue;
       const pet = createPetFromDefinition(definition);
       state.inventory.push(pet);
       pets.push(pet);
@@ -1993,12 +2602,45 @@
     notify(`Pet hatch animation skip: ${state.skipHatchAnimation ? "ON" : "OFF"}`, state.skipHatchAnimation ? "#4ade80" : "#c084fc");
   }
 
+  function hasAtomicPetActive() {
+    return state.inventory.some(p => p.key === "atomicsupercat");
+  }
+  function getAtomicFishMultiplier() {
+    if (!hasAtomicPetActive()) return 1;
+    const stackMult = 1 + Math.min(999, state.atomicClicks || 0) * 0.1;
+    const activeMult = Date.now() < (state.atomicActiveUntil || 0) ? 100 : 1;
+    return stackMult * activeMult;
+  }
+  function getAtomicAutoSpeedMultiplier() {
+    return hasAtomicPetActive() && Date.now() < (state.atomicActiveUntil || 0) ? 2 : 1;
+  }
+  function triggerAtomicActive() {
+    state.atomicClicks = 0;
+    state.atomicActiveUntil = Date.now() + 60 * 1000;
+    state.atomicEggLuckCharges = Math.max(state.atomicEggLuckCharges || 0, 1);
+    saveAll();
+    try {
+      if (window.gameFns && window.gameFns.showNotification) window.gameFns.showNotification("⚛ ATOMIC ACTIVE!\nx100 fish • x2 auto • next egg x1000 luck", "#00ffaa", 4500);
+      document.body.classList.remove("atomic-active-shake");
+      void document.body.offsetWidth;
+      document.body.classList.add("atomic-active-shake");
+      setTimeout(() => document.body.classList.remove("atomic-active-shake"), 900);
+    } catch(e) {}
+  }
+  function onAtomicClick() {
+    if (!hasAtomicPetActive()) return 1;
+    state.atomicClicks = (state.atomicClicks || 0) + 1;
+    if (state.atomicClicks >= 1000) triggerAtomicActive();
+    else if (state.atomicClicks % 25 === 0) saveAll();
+    return getAtomicFishMultiplier();
+  }
+
   function getSelectedPet() {
     return state.inventory.find((pet) => pet.id === state.selectedPetId) || null;
   }
 
   function getFreeSlots() {
-    return MAX_PETS - state.inventory.length;
+    return getMaxPetSlots() - state.inventory.length;
   }
 
   function getEquippedCount() {
@@ -2031,6 +2673,7 @@
     saveAll();
     renderInventory();
     updateEquippedBar();
+    refreshGameBonuses();
   }
 
   function toggleLockSelectedPet() {
@@ -2046,6 +2689,56 @@
     const pet = getSelectedPet();
     if (!pet) return;
     sellPetById(pet.id);
+  }
+
+  function makeTradePetSnapshot(pet) {
+    return {
+      key: pet.key,
+      name: pet.name,
+      rarity: pet.rarity,
+      icon: pet.icon,
+      sellPrice: pet.sellPrice || 0,
+      locked: !!pet.locked,
+      unsellable: !!pet.unsellable,
+      vipOnly: !!pet.vipOnly,
+      imperialOnly: !!pet.imperialOnly,
+      noBoost: !!pet.noBoost,
+      createdAt: Date.now()
+    };
+  }
+
+  function removePetForTrade(petId) {
+    const index = state.inventory.findIndex((pet) => pet.id === petId);
+    if (index === -1) return { ok: false, error: "Pet not found" };
+    const pet = state.inventory[index];
+    // VIP and Imperial pets are now tradable by design.
+    const snapshot = makeTradePetSnapshot(pet);
+    state.inventory.splice(index, 1);
+    if (state.selectedPetId === petId) state.selectedPetId = state.inventory[0] ? state.inventory[0].id : null;
+    saveAll();
+    renderInventory();
+    updateEquippedBar();
+    refreshGameBonuses();
+    return { ok: true, pet: snapshot };
+  }
+
+  function addPetFromTrade(petData) {
+    if (getFreeSlots() <= 0) return { ok: false, error: "No free pet slots" };
+    const normalized = normalizePet({ ...petData, id: makePetId(), equipped: false, createdAt: Date.now() });
+    if (!normalized) return { ok: false, error: "Invalid trade pet" };
+    normalized.equipped = false;
+    if (!normalized.vipOnly && !normalized.imperialOnly) {
+      normalized.locked = !!petData.locked;
+      normalized.unsellable = !!petData.unsellable;
+    } else {
+      normalized.locked = true;
+      normalized.unsellable = true;
+    }
+    state.inventory.push(normalized);
+    state.selectedPetId = normalized.id;
+    saveAll();
+    renderAll();
+    return { ok: true, pet: normalized };
   }
 
   function sellPetById(id, options = {}) {
@@ -2072,6 +2765,7 @@
     renderInventory();
     renderEggShop();
     updateEquippedBar();
+    refreshGameBonuses();
     if (!options.silent) notify(`Sold ${pet.name} for +${formatNum(pet.sellPrice)} amethysts!`, "#c084fc");
     return true;
   }

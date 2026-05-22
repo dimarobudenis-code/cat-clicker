@@ -1,5 +1,5 @@
 /* ==========================================================
-   CAT CLICKER  admin.js (Admin panel logic)
+   CAT CLICKER — admin.js (Admin panel logic)
    ========================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -36,24 +36,29 @@ function initAdmin() {
     if (cmd.type === "addfish") {
       const amount = cmd.amount || 0;
       return amount >= 0
-        ? pickLocale(` \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0420\u042B\u0411\u042B!`, ` Admin sent you +${F.formatNum(amount)} fish!`)
-        : pickLocale(` \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0420\u042B\u0411\u042B!`, ` Admin took ${F.formatNum(Math.abs(amount))} fish from you!`);
+        ? pickLocale(`🎁 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0420\u042B\u0411\u042B!`, `🎁 Admin sent you +${F.formatNum(amount)} fish!`)
+        : pickLocale(`⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0420\u042B\u0411\u042B!`, `⚠️ Admin took ${F.formatNum(Math.abs(amount))} fish from you!`);
     }
     if (cmd.type === "addcrystal") {
       const amount = cmd.amount || 0;
       return amount >= 0
-        ? pickLocale(` \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412!`, ` Admin sent you +${F.formatNum(amount)} amethysts!`)
-        : pickLocale(` \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412!`, ` Admin took ${F.formatNum(Math.abs(amount))} amethysts from you!`);
+        ? pickLocale(`💎 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412!`, `💎 Admin sent you +${F.formatNum(amount)} amethysts!`)
+        : pickLocale(`⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412!`, `⚠️ Admin took ${F.formatNum(Math.abs(amount))} amethysts from you!`);
+    }
+    if (cmd.type === "addstell") {
+      const amount = cmd.amount || 0;
+      return amount >= 0 ? `☄ Admin sent you +${F.formatNum(amount)} Stell!` : `⚠️ Admin took ${F.formatNum(Math.abs(amount))} Stell from you!`;
     }
     if (cmd.type === "wave") {
       const en = { gold: "GOLD WAVE x2 for 5 sec", diamond: "DIAMOND WAVE x5 for 10 sec", rainbow: "RAINBOW WAVE x100 for 5 min", amethyst: "AMETHYST WAVE x100 for 5 min" }[cmd.waveType] || "EVENT";
-      return pickLocale(buildAdminWaveMessage(cmd.waveType), ` Admin started ${en}!`);
+      return pickLocale(buildAdminWaveMessage(cmd.waveType), `⚡ Admin started ${en}!`);
     }
-    if (cmd.type === "setclick") return pickLocale(buildAdminSetClickMessage(cmd.value || 0), ` Admin set your click power to ${F.formatNum(cmd.value || 0)}`);
-    if (cmd.type === "setauto") return pickLocale(buildAdminSetAutoMessage(cmd.value || 0), ` Admin set your auto income to ${F.formatNum(cmd.value || 0)}/sec`);
-    if (cmd.type === "replaceSave") return pickLocale(buildAdminReplaceSaveMessage(), " Admin changed your save data!");
-    if (cmd.type === "grantadmin") return pickLocale(" \u0412\u0410\u041C \u0412\u042B\u0414\u0410\u041D\u0410 \u0410\u0414\u041C\u0418\u041D\u041A\u0410!", " You have been granted admin rights!");
-    if (cmd.type === "revokeadmin") return pickLocale(" \u0412\u0410\u0428\u0410 \u0410\u0414\u041C\u0418\u041D\u041A\u0410 \u0411\u042B\u041B\u0410 \u0417\u0410\u0411\u0420\u0410\u041D\u0410!", " Your admin rights have been revoked!");
+    if (cmd.type === "setclick") return pickLocale(buildAdminSetClickMessage(cmd.value || 0), `⚡ Admin set your click power to ${F.formatNum(cmd.value || 0)}`);
+    if (cmd.type === "setauto") return pickLocale(buildAdminSetAutoMessage(cmd.value || 0), `⚡ Admin set your auto income to ${F.formatNum(cmd.value || 0)}/sec`);
+    if (cmd.type === "replaceSave") return pickLocale(buildAdminReplaceSaveMessage(), "⚡ Admin changed your save data!");
+    if (cmd.type === "cometevent") return pickLocale("☄ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B COMET EVENT!", "☄ Admin started COMET EVENT!");
+    if (cmd.type === "grantadmin") return pickLocale("⚡ \u0412\u0410\u041C \u0412\u042B\u0414\u0410\u041D\u0410 \u0410\u0414\u041C\u0418\u041D\u041A\u0410!", "⚡ You have been granted admin rights!");
+    if (cmd.type === "revokeadmin") return pickLocale("⚠️ \u0412\u0410\u0428\u0410 \u0410\u0414\u041C\u0418\u041D\u041A\u0410 \u0411\u042B\u041B\u0410 \u0417\u0410\u0411\u0420\u0410\u041D\u0410!", "⚠️ Your admin rights have been revoked!");
     return cmd.message || "";
   }
 
@@ -95,6 +100,13 @@ function initAdmin() {
     });
   }
 
+  function applyLocalForcedPetEgg(petKey, count) {
+    getPetApiWithRetry((api) => {
+      if (typeof api.openForcedPetEgg === "function") api.openForcedPetEgg(petKey, count || 1);
+      F.saveGame();
+    });
+  }
+
   function applyLocalLuck10(durationMs = ADMIN_LUCK_DURATION_MS) {
     getPetApiWithRetry((api) => {
       api.startAdminLuckEvent(durationMs, { silent: true });
@@ -109,8 +121,21 @@ function initAdmin() {
       type: "addpet",
       petKey: safeKey,
       count: safeCount,
-      messageRu: ` \u0410\u0414\u041C\u0418\u041D \u0412\u042B\u0414\u0410\u041B \u0412\u0410\u041C ${safeCount}x ${getPetAdminName(safeKey)}!`,
-      messageEn: ` Admin gave you ${safeCount}x ${getPetAdminName(safeKey)}!`,
+      messageRu: `🐾 \u0410\u0414\u041C\u0418\u041D \u0412\u042B\u0414\u0410\u041B \u0412\u0410\u041C ${safeCount}x ${getPetAdminName(safeKey)}!`,
+      messageEn: `🐾 Admin gave you ${safeCount}x ${getPetAdminName(safeKey)}!`,
+      delayMs: 700
+    };
+  }
+
+  function getForcedPetEggCommand(petKey, count) {
+    const safeKey = petKey || "stellangeldemon";
+    const safeCount = parsePetCount(count);
+    return {
+      type: "forcepetegg",
+      petKey: safeKey,
+      count: safeCount,
+      messageRu: `🥚 \u0410\u0414\u041C\u0418\u041D \u0412\u042B\u0414\u0410\u041B \u0412\u0410\u041C ${safeCount}x egg!`,
+      messageEn: `🥚 Admin gave you ${safeCount}x special egg!`,
       delayMs: 700
     };
   }
@@ -119,9 +144,27 @@ function initAdmin() {
     return {
       type: "luck10",
       durationMs: ADMIN_LUCK_DURATION_MS,
-      messageRu: " \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B x10 \u0423\u0414\u0410\u0427\u0423 \u041D\u0410 10 \u041C\u0418\u041D\u0423\u0422!",
-      messageEn: " Admin started x10 LUCK for 10 minutes!",
+      messageRu: "🍀 \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B x10 \u0423\u0414\u0410\u0427\u0423 \u041D\u0410 10 \u041C\u0418\u041D\u0423\u0422!",
+      messageEn: "🍀 Admin started x10 LUCK for 10 minutes!",
       delayMs: 900
+    };
+  }
+
+  function getVipCommand() {
+    return {
+      type: "grantvip",
+      messageRu: "⭐ \u0410\u0414\u041C\u0418\u041D \u0412\u042B\u0414\u0410\u041B \u0412\u0410\u041C VIP!",
+      messageEn: "⭐ Admin gave you VIP!",
+      delayMs: 700
+    };
+  }
+
+  function getImperialCommand() {
+    return {
+      type: "grantimperial",
+      messageRu: "👑 \u0410\u0414\u041C\u0418\u041D \u0412\u042B\u0414\u0410\u041B \u0412\u0410\u041C IMPERIAL!",
+      messageEn: "👑 Admin gave you IMPERIAL!",
+      delayMs: 700
     };
   }
 
@@ -130,41 +173,44 @@ function initAdmin() {
       gold: { title: "\u0417\u041E\u041B\u041E\u0422\u0423\u042E \u0412\u041E\u041B\u041D\u0423", mult: "x2", time: "5 \u0421\u0415\u041A", color: "#ffd700" },
       diamond: { title: "\u0410\u041B\u041C\u0410\u0417\u041D\u0423\u042E \u0412\u041E\u041B\u041D\u0423", mult: "x5", time: "10 \u0421\u0415\u041A", color: "#00b4ff" },
       rainbow: { title: "\u0420\u0410\u0414\u0423\u0416\u041D\u0423\u042E \u0412\u041E\u041B\u041D\u0423", mult: "x100", time: "5 \u041C\u0418\u041D", color: "#ff66ff" },
-      amethyst: { title: "\u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412\u0423\u042E \u0412\u041E\u041B\u041D\u0423", mult: "x100", time: "5 \u041C\u0418\u041D", color: "#c084fc" }
+      amethyst: { title: "\u0410\u041C\u0415\u0422\u0418\u0421\u0422\u041E\u0412\u042B\u0419 \u0418\u0412\u0415\u041D\u0422", mult: "10%", time: "5 \u041C\u0418\u041D", color: "#c084fc" }
     }[waveType] || { title: "\u0421\u041E\u0411\u042B\u0422\u0418\u0415", mult: "", time: "", color: "#ffd700" };
   }
 
   function buildAdminFishMessage(amount) {
-    if (amount >= 0) return ` \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0420\u042B\u0411\u042B!`;
-    return ` \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0420\u042B\u0411\u042B!`;
+    if (amount >= 0) return `🎁 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u0420\u042B\u0411\u042B!`;
+    return `⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u0420\u042B\u0411\u042B!`;
   }
 
   function buildAdminCrystalMessage(amount) {
-    if (amount >= 0) return ` \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u041A\u0420\u0418\u0421\u0422\u0410\u041B\u041B\u041E\u0412!`;
-    return ` \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u041A\u0420\u0418\u0421\u0422\u0410\u041B\u041B\u041E\u0412!`;
+    if (amount >= 0) return `💎 \u0410\u0414\u041C\u0418\u041D \u041E\u0422\u041F\u0420\u0410\u0412\u0418\u041B \u0412\u0410\u041C +${F.formatNum(amount)} \u041A\u0420\u0418\u0421\u0422\u0410\u041B\u041B\u041E\u0412!`;
+    return `⚠️ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u0411\u0420\u0410\u041B \u0423 \u0412\u0410\u0421 ${F.formatNum(Math.abs(amount))} \u041A\u0420\u0418\u0421\u0422\u0410\u041B\u041B\u041E\u0412!`;
   }
 
   function buildAdminWaveMessage(waveType) {
     const meta = getWaveMeta(waveType);
-    return ` \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B \u0423 \u0412\u0410\u0421 ${meta.title} ${meta.mult} \u041D\u0410 ${meta.time}!`;
+    return `⚡ \u0410\u0414\u041C\u0418\u041D \u0417\u0410\u041F\u0423\u0421\u0422\u0418\u041B \u0423 \u0412\u0410\u0421 ${meta.title} ${meta.mult} \u041D\u0410 ${meta.time}!`;
   }
 
   function buildAdminSetClickMessage(value) {
-    return ` \u0410\u0414\u041C\u0418\u041D \u0423\u0421\u0422\u0410\u041D\u041E\u0412\u0418\u041B \u0412\u0410\u041C \u0421\u0418\u041B\u0423 \u041A\u041B\u0418\u041A\u0410: ${F.formatNum(value)}`;
+    return `⚡ \u0410\u0414\u041C\u0418\u041D \u0423\u0421\u0422\u0410\u041D\u041E\u0412\u0418\u041B \u0412\u0410\u041C \u0421\u0418\u041B\u0423 \u041A\u041B\u0418\u041A\u0410: ${F.formatNum(value)}`;
   }
 
   function buildAdminSetAutoMessage(value) {
-    return ` \u0410\u0414\u041C\u0418\u041D \u0423\u0421\u0422\u0410\u041D\u041E\u0412\u0418\u041B \u0412\u0410\u041C \u0410\u0412\u0422\u041E\u0414\u041E\u0425\u041E\u0414: ${F.formatNum(value)}/SEC`;
+    return `⚡ \u0410\u0414\u041C\u0418\u041D \u0423\u0421\u0422\u0410\u041D\u041E\u0412\u0418\u041B \u0412\u0410\u041C \u0410\u0412\u0422\u041E\u0414\u041E\u0425\u041E\u0414: ${F.formatNum(value)}/SEC`;
   }
 
   function buildAdminReplaceSaveMessage() {
-    return " \u0410\u0414\u041C\u0418\u041D \u0418\u0417\u041C\u0415\u041D\u0418\u041B \u0412\u0410\u0428\u0418 \u0414\u0410\u041D\u041D\u042B\u0415 \u0418 \u0421\u041E\u0425\u0420\u0410\u041D\u0415\u041D\u0418\u0415!";
+    return "⚡ \u0410\u0414\u041C\u0418\u041D \u0418\u0417\u041C\u0415\u041D\u0418\u041B \u0412\u0410\u0428\u0418 \u0414\u0410\u041D\u041D\u042B\u0415 \u0418 \u0421\u041E\u0425\u0420\u0410\u041D\u0415\u041D\u0418\u0415!";
   }
 
   function getCommandNotifyColor(cmd) {
     if (cmd.type === "wave") return getWaveMeta(cmd.waveType).color;
-    if (cmd.type === "addcrystal" || cmd.type === "addpet") return "#c084fc";
+    if (cmd.type === "addcrystal" || cmd.type === "addpet" || cmd.type === "forcepetegg" || cmd.type === "addstell") return "#c084fc";
+    if (cmd.type === "grantvip") return "#ffd700";
+    if (cmd.type === "grantimperial") return "#ff3333";
     if (cmd.type === "luck10") return "#ffd700";
+    if (cmd.type === "cometevent") return "#c084fc";
     if (cmd.type === "setclick" || cmd.type === "setauto" || cmd.type === "grantadmin") return "#4ade80";
     if (cmd.type === "revokeadmin") return "#ff6666";
     if (cmd.type === "replaceSave") return "#ff9f43";
@@ -181,7 +227,8 @@ function initAdmin() {
     if (typeof cmd.delayMs === "number") return cmd.delayMs;
     if (cmd.type === "wave") return 1200;
     if (cmd.type === "luck10") return 900;
-    if (cmd.type === "addpet") return 700;
+    if (cmd.type === "cometevent") return 900;
+    if (cmd.type === "addpet" || cmd.type === "forcepetegg" || cmd.type === "grantvip" || cmd.type === "grantimperial") return 700;
     if (cmd.message || cmd.messageRu || cmd.messageEn) return 700;
     return 0;
   }
@@ -220,6 +267,37 @@ function initAdmin() {
       F.updateScore();
       F.saveGame();
       adminCustomCrystal.value = "";
+    });
+  }
+
+  const adminCustomStellBtn = document.getElementById("adminCustomStellBtn");
+  const adminCustomStell = document.getElementById("adminCustomStell");
+  if (adminCustomStellBtn && adminCustomStell) {
+    adminCustomStellBtn.addEventListener("click", () => {
+      if (!F.checkAdmin()) return;
+      const v = F.parseNumInput(adminCustomStell.value);
+      if (isNaN(v)) { alert("Invalid Stell amount"); return; }
+      S.stell += v;
+      if (S.stell < 0) S.stell = 0;
+      F.updateScore();
+      F.saveGame();
+      adminCustomStell.value = "";
+    });
+  }
+  const adminStellAllBtn = document.getElementById("adminStellAllBtn");
+  if (adminStellAllBtn && adminCustomStell) {
+    adminStellAllBtn.addEventListener("click", async () => {
+      if (!F.checkAdmin() || !window.fb) return;
+      const amount = F.parseNumInput(adminCustomStell.value);
+      if (isNaN(amount) || amount === 0) { alert("Invalid Stell amount"); return; }
+      if (!confirm(`Send ${F.formatNum(amount)} Stell to ALL players?`)) return;
+      await sendCommandToAll({ type: "addstell", amount, delayMs: 700 });
+      S.stell += amount;
+      if (S.stell < 0) S.stell = 0;
+      F.updateScore();
+      F.saveGame();
+      announceAdminAbuse(`Admin sent ${F.formatNum(amount)} Stell to all players!`);
+      alert("✓ Stell sent to all players!");
     });
   }
 
@@ -299,7 +377,16 @@ function initAdmin() {
     adminAmethystWave.addEventListener("click", () => {
       if (!F.checkAdmin()) return;
       if (S.waveActive) F.endWave(S.activeWaveType);
-      F.startWave("amethyst", 100, 300);
+      F.startWave("amethyst", 1, 300);
+    });
+  }
+
+  const adminCometEvent = document.getElementById("adminCometEvent");
+  if (adminCometEvent) {
+    adminCometEvent.addEventListener("click", () => {
+      if (!F.checkAdmin()) return;
+      if (F.forceStartCometEvent) F.forceStartCometEvent();
+      announceAdminAbuse("Admin started Comet Event!");
     });
   }
 
@@ -312,6 +399,82 @@ function initAdmin() {
       const petKey = adminPetType.value || "random";
       const count = parsePetCount(adminPetCount.value);
       applyAdminCommand(getPetCommand(petKey, count));
+    });
+  }
+
+  const adminGivePetAll = document.getElementById("adminGivePetAll");
+  if (adminGivePetAll && adminPetType && adminPetCount) {
+    adminGivePetAll.addEventListener("click", async () => {
+      if (!F.checkAdmin() || !window.fb) return;
+      const petKey = adminPetType.value || "random";
+      const count = parsePetCount(adminPetCount.value);
+      if (!confirm(`Give ${count}x ${getPetAdminName(petKey)} to ALL players?`)) return;
+      await sendCommandToAll(getPetCommand(petKey, count));
+      applyAdminCommand(getPetCommand(petKey, count));
+      announceAdminAbuse(`Admin gave ${count}x ${getPetAdminName(petKey)} to all players!`);
+      alert("✓ Pet sent to all players!");
+    });
+  }
+
+  const adminEggPetType = document.getElementById("adminEggPetType");
+  const adminEggCount = document.getElementById("adminEggCount");
+  const adminGiveEggSelf = document.getElementById("adminGiveEggSelf");
+  if (adminGiveEggSelf && adminEggPetType && adminEggCount) {
+    adminGiveEggSelf.addEventListener("click", () => {
+      if (!F.checkAdmin()) return;
+      applyAdminCommand(getForcedPetEggCommand(adminEggPetType.value, adminEggCount.value));
+    });
+  }
+  const adminGiveEggAll = document.getElementById("adminGiveEggAll");
+  if (adminGiveEggAll && adminEggPetType && adminEggCount) {
+    adminGiveEggAll.addEventListener("click", async () => {
+      if (!F.checkAdmin() || !window.fb) return;
+      const cmd = getForcedPetEggCommand(adminEggPetType.value, adminEggCount.value);
+      if (!confirm(`Give ${cmd.count} special egg(s) to ALL players?`)) return;
+      await sendCommandToAll(cmd);
+      applyAdminCommand(cmd);
+      announceAdminAbuse(`Admin gave ${cmd.count} special eggs to all players!`);
+      alert("✓ Eggs sent to all players!");
+    });
+  }
+
+  const adminGiveVipSelf = document.getElementById("adminGiveVipSelf");
+  if (adminGiveVipSelf) {
+    adminGiveVipSelf.addEventListener("click", () => {
+      if (!F.checkAdmin()) return;
+      applyAdminCommand(getVipCommand());
+    });
+  }
+
+  const adminGiveVipAll = document.getElementById("adminGiveVipAll");
+  if (adminGiveVipAll) {
+    adminGiveVipAll.addEventListener("click", async () => {
+      if (!F.checkAdmin() || !window.fb) return;
+      if (!confirm("Give VIP to ALL players?")) return;
+      await sendCommandToAll(getVipCommand());
+      applyAdminCommand(getVipCommand());
+      announceAdminAbuse("Admin gave VIP to all players!");
+      alert("✓ VIP sent to all players!");
+    });
+  }
+
+  const adminGiveImperialSelf = document.getElementById("adminGiveImperialSelf");
+  if (adminGiveImperialSelf) {
+    adminGiveImperialSelf.addEventListener("click", () => {
+      if (!F.checkAdmin()) return;
+      applyAdminCommand(getImperialCommand());
+    });
+  }
+
+  const adminGiveImperialAll = document.getElementById("adminGiveImperialAll");
+  if (adminGiveImperialAll) {
+    adminGiveImperialAll.addEventListener("click", async () => {
+      if (!F.checkAdmin() || !window.fb) return;
+      if (!confirm("Give IMPERIAL to ALL players?")) return;
+      await sendCommandToAll(getImperialCommand());
+      applyAdminCommand(getImperialCommand());
+      announceAdminAbuse("Admin gave Imperial to all players!");
+      alert("✓ Imperial sent to all players!");
     });
   }
 
@@ -330,7 +493,7 @@ function initAdmin() {
       if (!confirm("Send x10 LUCK EVENT for 10 minutes to ALL players?")) return;
       await sendCommandToAll(getLuck10Command());
       applyAdminCommand(getLuck10Command());
-      alert(" x10 luck event sent to all players!");
+      alert("✓ x10 luck event sent to all players!");
     });
   }
 
@@ -370,7 +533,7 @@ function initAdmin() {
         F.updateScore();
         F.saveGame();
 
-        alert(` Sent +${F.formatNum(amount)} fish to ${sent} players!`);
+        alert(`✓ Sent +${F.formatNum(amount)} fish to ${sent} players!`);
         announceAdminAbuse(`Admin sent ${F.formatNum(amount)} fish to all players!`);
         adminRewardAllFish.value = "";
       } catch (e) { alert("Failed: " + e.message); }
@@ -409,7 +572,7 @@ function initAdmin() {
         if (S.crystals < 0) S.crystals = 0;
         F.updateScore();
         F.saveGame();
-        alert(` Sent +${F.formatNum(amount)} crystals to ${sent} players!`);
+        alert(`✓ Sent +${F.formatNum(amount)} crystals to ${sent} players!`);
         announceAdminAbuse(`Admin sent ${F.formatNum(amount)} amethysts to all players!`);
         adminRewardAllCrystals.value = "";
       } catch (e) { alert("Failed: " + e.message); }
@@ -456,7 +619,19 @@ function initAdmin() {
       if (!confirm("Send AMETHYST WAVE x100 (5 min) to ALL players?")) return;
       await sendCommandToAll({ type: "wave", waveType: "amethyst", message: buildAdminWaveMessage("amethyst"), delayMs: 1200 });
       if (S.waveActive) F.endWave(S.activeWaveType);
-      F.startWave("amethyst", 100, 300);
+      F.startWave("amethyst", 1, 300);
+    });
+  }
+
+  const adminRewardAllComet = document.getElementById("adminRewardAllComet");
+  if (adminRewardAllComet) {
+    adminRewardAllComet.addEventListener("click", async () => {
+      if (!F.checkAdmin() || !window.fb) return;
+      if (!confirm("Start COMET EVENT for ALL players?")) return;
+      await sendCommandToAll({ type: "cometevent", delayMs: 900 });
+      if (F.forceStartCometEvent) F.forceStartCometEvent();
+      announceAdminAbuse("Admin started Comet Event for all players!");
+      alert("✓ Comet event sent to all players!");
     });
   }
 
@@ -489,7 +664,7 @@ function initAdmin() {
       if (!F.checkAdmin() || !window.fb) return;
       try {
         await window.fb.set(window.fb.ref(window.fb.db, `users/${S.currentUser.uid}`), F.buildSaveData());
-        alert(" Pushed!");
+        alert("✓ Pushed!");
       } catch (e) { alert("Failed: " + e.message); }
     });
   }
@@ -503,7 +678,7 @@ function initAdmin() {
         const data = snap.val();
         if (!data) { alert("No cloud data"); return; }
         F.applySaveData(data);
-        alert(" Pulled!");
+        alert("✓ Pulled!");
       } catch (e) { alert("Failed: " + e.message); }
     });
   }
@@ -525,7 +700,7 @@ function initAdmin() {
         S.recoveryCode = ourCode;
         F.updateRecoveryDisplay();
         F.saveGame();
-        alert(" Synced!");
+        alert("✓ Synced!");
         adminSyncUid.value = "";
       } catch (e) { alert("Failed: " + e.message); }
     });
@@ -587,8 +762,8 @@ function initAdmin() {
       return;
     }
     alert(cloudOk
-      ? " Admin granted in cloud!"
-      : " Admin grant command sent! Player gets admin after opening/refreshing the game.");
+      ? "✓ Admin granted in cloud!"
+      : "✓ Admin grant command sent! Player gets admin after opening/refreshing the game.");
     loadAdminPlayers();
   }
 
@@ -621,8 +796,8 @@ function initAdmin() {
       return;
     }
     alert(cloudOk
-      ? " Admin revoked in cloud! Hardcoded owners cannot be revoked by this button."
-      : " Revoke command sent! Player loses local admin after opening/refreshing the game.");
+      ? "✓ Admin revoked in cloud! Hardcoded owners cannot be revoked by this button."
+      : "✓ Revoke command sent! Player loses local admin after opening/refreshing the game.");
     loadAdminPlayers();
   }
 
@@ -683,7 +858,7 @@ function initAdmin() {
       el.innerHTML = `
         <div class="admin-player-head">
           <span class="admin-player-name">${F.escapeHtml((lb.vip ? "[VIP] " : "") + (lb.name || "Anon") + adminBadge)}${isBanned ? " [BANNED]" : ""}</span>
-          <span class="admin-player-fish">${F.formatNum(lb.fish || 0)} </span>
+          <span class="admin-player-fish">${F.formatNum(lb.fish || 0)} 🐟</span>
         </div>
         <div class="admin-player-uid">${uid}</div>
         <div class="admin-player-stats">
@@ -701,13 +876,16 @@ function initAdmin() {
           <button class="admin-mini-btn ui-click" data-action="addfish">+1K</button>
           <button class="admin-mini-btn ui-click" data-action="addfish10k">+10K</button>
           <button class="admin-mini-btn ui-click" data-action="addfish100k">+100K</button>
-          <button class="admin-mini-btn ui-click" data-action="custom">CUSTOM </button>
+          <button class="admin-mini-btn ui-click" data-action="custom">CUSTOM 🐟</button>
           <button class="admin-mini-btn gold-admin ui-click" data-action="goldwave">GOLD</button>
           <button class="admin-mini-btn diamond-admin ui-click" data-action="diamondwave">DIAMOND</button>
           <button class="admin-mini-btn ui-click" data-action="setclick">SET CLICK</button>
           <button class="admin-mini-btn ui-click" data-action="setauto">SET AUTO</button>
           <button class="admin-mini-btn ui-click" data-action="editstats">EDIT STATS</button>
           <button class="admin-mini-btn ui-click" data-action="givepet">GIVE PET</button>
+          <button class="admin-mini-btn gold-admin ui-click" data-action="givevip">GIVE VIP</button>
+          <button class="admin-mini-btn danger-admin ui-click" data-action="giveimperial">IMPERIAL</button>
+          <button class="admin-mini-btn ui-click" data-action="backupdata">BACKUP DATA</button>
           <button class="admin-mini-btn gold-admin ui-click" data-action="luck10">x10 LUCK</button>
           <button class="admin-mini-btn ui-click" data-action="grantadmin">GRANT ADMIN</button>
           <button class="admin-mini-btn danger-admin ui-click" data-action="revokeadmin">REVOKE ADMIN</button>
@@ -758,7 +936,7 @@ function initAdmin() {
         await fb.remove(fb.ref(fb.db, `users/${targetUid}`));
         await fb.remove(fb.ref(fb.db, `commands/${targetUid}`));
         cardEl.remove();
-        alert(" Wiped!");
+        alert("✓ Wiped!");
         return;
       }
 
@@ -779,14 +957,53 @@ function initAdmin() {
         if (targetUid === S.currentUser.uid) {
           applyAdminCommand(petCmd);
           F.saveGame();
-          alert(" Pet added!");
+          alert("✓ Pet added!");
           return;
         }
         petCmd.id = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
         petCmd.from = S.currentUser.uid;
         petCmd.timestamp = Date.now();
         await fb.set(fb.ref(fb.db, `commands/${targetUid}/${petCmd.id}`), petCmd);
-        alert(` Pet sent to ${lbData.name || "Anon"}!`);
+        alert(`✓ Pet sent to ${lbData.name || "Anon"}!`);
+        return;
+      }
+
+      if (action === "backupdata") {
+        openPlayerDataBackup(targetUid, lbData, userData);
+        return;
+      }
+
+      if (action === "giveimperial") {
+        const imperialCmd = getImperialCommand();
+        if (targetUid === S.currentUser.uid) {
+          applyAdminCommand(imperialCmd);
+          F.saveGame();
+          alert("✓ Imperial granted!");
+          return;
+        }
+        imperialCmd.id = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+        imperialCmd.from = S.currentUser.uid;
+        imperialCmd.timestamp = Date.now();
+        await fb.set(fb.ref(fb.db, `commands/${targetUid}/${imperialCmd.id}`), imperialCmd);
+        announceAdminAbuse(`Admin gave Imperial to ${lbData.name || "Anon"}!`);
+        alert(`✓ Imperial sent to ${lbData.name || "Anon"}!`);
+        return;
+      }
+
+      if (action === "givevip") {
+        const vipCmd = getVipCommand();
+        if (targetUid === S.currentUser.uid) {
+          applyAdminCommand(vipCmd);
+          F.saveGame();
+          alert("✓ VIP granted!");
+          return;
+        }
+        vipCmd.id = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+        vipCmd.from = S.currentUser.uid;
+        vipCmd.timestamp = Date.now();
+        await fb.set(fb.ref(fb.db, `commands/${targetUid}/${vipCmd.id}`), vipCmd);
+        announceAdminAbuse(`Admin gave VIP to ${lbData.name || "Anon"}!`);
+        alert(`✓ VIP sent to ${lbData.name || "Anon"}!`);
         return;
       }
 
@@ -795,14 +1012,14 @@ function initAdmin() {
         if (targetUid === S.currentUser.uid) {
           applyAdminCommand(luckCmd);
           F.saveGame();
-          alert(" Luck event started!");
+          alert("✓ Luck event started!");
           return;
         }
         luckCmd.id = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
         luckCmd.from = S.currentUser.uid;
         luckCmd.timestamp = Date.now();
         await fb.set(fb.ref(fb.db, `commands/${targetUid}/${luckCmd.id}`), luckCmd);
-        alert(` x10 luck sent to ${lbData.name || "Anon"}!`);
+        alert(`✓ x10 luck sent to ${lbData.name || "Anon"}!`);
         return;
       }
 
@@ -839,7 +1056,7 @@ function initAdmin() {
       if (targetUid === S.currentUser.uid) {
         applyAdminCommand(command);
         F.saveGame();
-        alert(" Applied!");
+        alert("✓ Applied!");
         return;
       }
 
@@ -848,10 +1065,43 @@ function initAdmin() {
       command.timestamp = Date.now();
       await fb.set(fb.ref(fb.db, `commands/${targetUid}/${command.id}`), command);
       announceAdminAbuse(`Admin used ${command.type} on ${lbData.name || "Anon"}!`);
-      alert(` Sent to ${lbData.name || "Anon"}!`);
+      alert(`✓ Sent to ${lbData.name || "Anon"}!`);
     } catch (e) {
       alert("Failed: " + e.message);
     }
+  }
+
+  function openPlayerDataBackup(targetUid, lbData, userData) {
+    const payload = {
+      exportedByAdmin: S.currentUser?.uid || null,
+      exportedAt: new Date().toISOString(),
+      targetUid,
+      leaderboard: lbData || null,
+      user: userData || null
+    };
+    const text = JSON.stringify(payload, null, 2);
+    const modal = document.createElement("div");
+    modal.className = "admin-stats-modal";
+    modal.innerHTML = `
+      <div style="color:#ffd700;font-size:9px;margin-bottom:8px;">PLAYER DATA BACKUP</div>
+      <div style="color:#888;font-size:6px;line-height:1.5;word-break:break-all;">UID: ${targetUid}</div>
+      <textarea id="adminBackupText" readonly style="width:100%;height:320px;background:#0f1020;color:#fff;border:2px solid #3a3a5a;padding:8px;font-family:monospace;font-size:10px;line-height:1.35;">${F.escapeHtml(text)}</textarea>
+      <div class="admin-row" style="margin-top:8px;">
+        <button class="admin-btn ui-click" id="adminBackupCopy">COPY</button>
+        <button class="admin-btn ui-click" id="adminBackupClose">CLOSE</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const ta = modal.querySelector("#adminBackupText");
+    modal.querySelector("#adminBackupClose").addEventListener("click", () => modal.remove());
+    modal.querySelector("#adminBackupCopy").addEventListener("click", async () => {
+      try {
+        if (navigator.clipboard) await navigator.clipboard.writeText(text);
+        else { ta.focus(); ta.select(); document.execCommand("copy"); }
+        alert("Copied!");
+      } catch (e) { ta.focus(); ta.select(); alert("Select and copy manually"); }
+    });
+    setTimeout(() => { ta.focus(); ta.select(); }, 80);
   }
 
   /* ========== \u0410\u0414\u041C\u0418\u041D: \u0420 \u0415\u0414\u0410\u041A\u0422\u041E\u0420  \u0421\u0422\u0410\u0422\u0418\u0421\u0422\u0418\u041A\u0418 ========== */
@@ -943,7 +1193,7 @@ function initAdmin() {
         }
 
         modal.remove();
-        alert(" Stats saved!");
+        alert("✓ Stats saved!");
         loadAdminPlayers();
       } catch (e) { alert("Failed: " + e.message); }
     });
@@ -989,18 +1239,43 @@ function initAdmin() {
       if (S.crystals < 0) S.crystals = 0;
       F.updateScore();
     }
+    else if (cmd.type === "addstell") {
+      S.stell += cmd.amount;
+      if (S.stell < 0) S.stell = 0;
+      F.updateScore();
+    }
     else if (cmd.type === "addpet") {
       applyLocalAddPet(cmd.petKey || "random", cmd.count || 1);
     }
+    else if (cmd.type === "forcepetegg") {
+      applyLocalForcedPetEgg(cmd.petKey || "stellangeldemon", cmd.count || 1);
+    }
     else if (cmd.type === "luck10") {
       applyLocalLuck10(cmd.durationMs || ADMIN_LUCK_DURATION_MS);
+    }
+    else if (cmd.type === "grantvip") {
+      S.vipActive = true;
+      if (F.grantVipPetIfPossible) F.grantVipPetIfPossible();
+      F.updateScore();
+      F.updateIncome();
+      F.saveGame();
+    }
+    else if (cmd.type === "grantimperial") {
+      S.imperialActive = true;
+      if (F.grantImperialPetIfPossible) F.grantImperialPetIfPossible();
+      F.updateScore();
+      F.updateIncome();
+      F.saveGame();
+    }
+    else if (cmd.type === "cometevent") {
+      if (F.forceStartCometEvent) F.forceStartCometEvent();
     }
     else if (cmd.type === "wave") {
       if (S.waveActive) F.endWave(S.activeWaveType);
       if (cmd.waveType === "gold") F.startWave("gold", 2, 5);
       else if (cmd.waveType === "diamond") F.startWave("diamond", 5, 10);
       else if (cmd.waveType === "rainbow") F.startWave("rainbow", 100, 300);
-      else if (cmd.waveType === "amethyst") F.startWave("amethyst", 100, 300);
+      else if (cmd.waveType === "amethyst") F.startWave("amethyst", 1, 300);
     }
     else if (cmd.type === "queueWaves") {
       if (cmd.waves && cmd.waves.length) F.queueWavesSequentially(cmd.waves);
