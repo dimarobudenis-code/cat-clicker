@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Clicker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <canvas id="space"></canvas>
+  <div class="wave-glow" id="waveGlow"></div>
+
+  <!-- &#1053;&#1077;&#1086;&#1085;&#1086;&#1074;&#1099;&#1081; &#1089;&#1095;&#1105;&#1090;&#1095;&#1080;&#1082; &#1085;&#1072;&#1075;&#1088;&#1072;&#1076; -->
+  <div class="neon-counter" id="neonCounter">
+    <div class="neon-counter-inner" id="neonCounterInner">
+      <div class="neon-counter-icon"></div>
+      <div class="neon-counter-text" id="neonCounterText">&#1058;&#1067; &#1055;&#1054;&#1051;&#1059;&#1063;&#1048;&#1064;&#1068;</div>
+      <div class="neon-counter-amount" id="neonCounterAmount">+0</div>
+      <div class="neon-counter-timer" id="neonCounterTimer">&#1095;&#1077;&#1088;&#1077;&#1079; 0 &#1089;&#1077;&#1082;</div>
+    </div>
+  </div>
+
+  <!-- &#1054;&#1092;&#1092;&#1083;&#1072;&#1081;&#1085; popup -->
+  <div class="offline-popup" id="offlinePopup">
+    <div class="offline-popup-inner">
+      <div class="offline-icon"><img src="OfflineCatIcon.png" alt="offline cat" /></div>
+      <div class="offline-title">WELCOME BACK!</div>
+      <div class="offline-time" id="offlineTime">You were away for 0m</div>
+      <div class="offline-reward-row">
+        <img src="FishIcon1.png" alt="fish" class="offline-fish-icon" />
+        <span class="offline-amount" id="offlineAmount">+0</span>
+      </div>
+      <div class="offline-hint">Your cats were fishing while you slept!</div>
+      <button class="offline-collect-btn ui-click" id="offlineCollectBtn">COLLECT</button>
+    </div>
+  </div>
+
+  <div class="top-buttons">
+    <button class="icon-btn ui-click" id="profileBtn">
+      <img src="UserIcon.png" alt="Profile" />
+    </button>
+    <button class="icon-btn ui-click" id="settingsBtn">
+      <img src="SettingsIcon.png" alt="Settings" />
+    </button>
+    <button class="icon-btn ui-click" id="chatBtn">
+      <img src="ChatIcon.png" alt="Chat" />
+    </button>
+    <button class="icon-btn ui-click" id="tradeBtn"><img src="TradeIcon.png" alt="Trades" /></button>
+  </div>
+
+  <div class="score-bar" id="scoreBar">
+    <img src="FishIcon1.png" alt="Fish" />
+    <span id="scoreText">0</span>
+  </div>
+
+  <div class="comet-timer" id="cometTimer"> 10:00</div>
+
+  <button class="event-comet-btn ui-click" id="cometEventBtn">
+    <img src="EventCometIcon.png" alt="Comet Event" />
+  </button>
+
+  <div class="crystal-bar" id="crystalBar">
+    <img src="CrystalIcon.png" alt="Crystal" />
+    <span id="crystalText">0</span>
+  </div>
+
+  <div class="income-bar" id="incomeBar">
+    <span class="income-click" id="incomeClick">+1/click</span>
+    <span class="income-sep">�</span>
+    <span class="income-sec" id="incomeSec">+0/sec</span>
+  </div>
+
+  <div class="multiplier-badge" id="multBadge">x2 GOLDEN WAVE</div>
+
+  <div class="center">
+    <button class="cat-btn" id="catBtn">
+      <img src="CatIcon1.png" alt="Cat" />
+    </button>
+  </div>
+
+  <div class="bottom-buttons">
+    <button class="bottom-btn ui-click" id="shopBtn">
+      <img src="ShopIcon.png" alt="Shop" />
+    </button>
+    <button class="bottom-btn ui-click" id="potionShopBtn">
+      <img src="PotionShop.png" alt="Potions" />
+    </button>
+    <button class="bottom-btn ui-click" id="topBtn">
+      <img src="TopIcon.png" alt="Top" />
+    </button>
+    <button class="bottom-btn ui-click" id="petShopBtn">
+      <img src="ShopPet.png" alt="Pets" />
+    </button>
+  </div>
+
+  <div class="potion-status-bar" id="potionStatusBar"></div>
+
+  <div class="waves-bar">
+    <div class="wave-block">
+      <div class="wave-label gold-label">GOLDEN WAVE<br/>x2 / 5s</div>
+      <div class="wave-progress-bg" id="goldBg">
+        <div class="wave-progress-fill gold-fill" id="goldFill"></div>
+      </div>
+      <div class="wave-timer" id="goldTimer"></div>
+    </div>
+    <div class="wave-block">
+      <div class="wave-label diamond-label">DIAMOND WAVE<br/>x5 / 10s</div>
+      <div class="wave-progress-bg" id="diamondBg">
+        <div class="wave-progress-fill diamond-fill" id="diamondFill"></div>
+      </div>
+      <div class="wave-timer" id="diamondTimer"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+
+  <!-- ========== SHOP ========== -->
+  <div class="menu" id="shopMenu">
+    <div class="menu-header">
+      <div class="menu-title">SHOP</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="shop-tabs">
+      <div class="shop-tab active ui-click" data-shop-tab="click">CLICK</div>
+      <div class="shop-tab ui-click" data-shop-tab="auto">AUTO</div>
+      <div class="shop-tab ui-click" data-shop-tab="rebirth">REBIRTH</div>
+    </div>
+    <div class="menu-content" id="shopItems"></div>
+  </div>
+
+  <!-- ========== POTION SHOP ========== -->
+  <div class="menu" id="potionMenu">
+    <div class="menu-header">
+      <div class="menu-title">POTION SHOP</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content" id="potionItems"></div>
+  </div>
+
+  <!-- ========== SETTINGS ========== -->
+  <div class="menu" id="settingsMenu">
+    <div class="menu-header">
+      <div class="menu-title">SETTINGS</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content">
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">WAVE GLOW</div>
+          <div class="setting-desc">Show glow during waves</div>
+        </div>
+        <div class="toggle on ui-click" id="glowToggle"></div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">SOUND</div>
+          <div class="setting-desc">Click sounds</div>
+        </div>
+        <div class="toggle on ui-click" id="soundToggle"></div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">MUSIC</div>
+          <div class="setting-desc">Lobby background music</div>
+        </div>
+        <div class="toggle on ui-click" id="musicToggle"></div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">ACCOUNT</div>
+          <div class="setting-desc">Sign in to appear in leaderboards and save to Firebase</div>
+        </div>
+        <button class="recovery-btn ui-click" id="accountBtn" style="width:auto;min-width:120px;">SIGN IN</button>
+      </div>
+      <div class="setting-row" id="adminOpenRow" style="display:none;">
+        <div>
+          <div class="setting-label">ADMIN PANEL</div>
+          <div class="setting-desc">Visible only for admin accounts</div>
+        </div>
+        <button class="recovery-btn ui-click" id="adminOpenBtn" style="width:auto;min-width:120px;">OPEN ADMIN</button>
+      </div>
+      <div class="setting-row" style="flex-direction:column;align-items:stretch;">
+        <div>
+          <div class="setting-label">PROMO CODE</div>
+          <div class="setting-desc">Enter a code to get rewards</div>
+        </div>
+        <input type="text" class="name-input" id="promoInput" placeholder="ENTER CODE" maxlength="30"
+          style="text-transform:uppercase;text-align:center;letter-spacing:2px;margin-top:8px;" />
+        <button class="recovery-btn ui-click" id="promoBtn" style="margin-top:8px;">ACTIVATE</button>
+      </div>
+      <button class="danger-btn ui-click" id="resetBtn">RESET PROGRESS</button>
+    </div>
+  </div>
+
+  <!-- ========== AUTH / ACCOUNT ========== -->
+  <div class="menu" id="authMenu">
+    <div class="menu-header">
+      <div class="menu-title">ACCOUNT</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content">
+      <div class="recovery-block">
+        <div class="recovery-title" id="authStatusTitle">GUEST MODE</div>
+        <div class="recovery-hint" id="authStatusHint">Sign in to save your account in Firebase and appear in TOP.</div>
+      </div>
+      <div class="recovery-block">
+        <div class="recovery-title">SIGN IN / REGISTER</div>
+        <input type="text" class="name-input" id="authNameInput" placeholder="Name" maxlength="10" />
+        <input type="email" class="name-input" id="authEmailInput" placeholder="Email" autocomplete="email" />
+        <input type="password" class="name-input" id="authPasswordInput" placeholder="Password" autocomplete="current-password" />
+        <div class="admin-row">
+          <button class="recovery-btn ui-click" id="authLoginBtn">SIGN IN</button>
+          <button class="recovery-btn ui-click" id="authRegisterBtn">REGISTER</button>
+        </div>
+        <button class="recovery-btn ui-click" id="authForgotBtn">FORGOT PASSWORD</button>
+        <button class="danger-btn ui-click" id="authLogoutBtn" style="display:none;">LOG OUT</button>
+        <div class="recovery-hint">Forgot password sends Firebase password reset email. Passwords are not stored in the game.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PROFILE ========== -->
+  <div class="menu" id="profileMenu">
+    <div class="menu-header">
+      <div class="menu-title">PROFILE</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content">
+      <div class="profile-top">
+        <label class="avatar-wrapper">
+          <img id="avatarImg" src="CatIcon1.png" alt="Avatar" />
+          <input type="file" id="avatarInput" accept="image/*" style="display:none" />
+        </label>
+        <div class="profile-info">
+          <input type="text" class="name-input" id="nameInput" placeholder="Your name" maxlength="10" />
+        </div>
+      </div>
+      <div id="authBlock">
+      </div>
+      <div class="stats-block">
+        <div class="stats-title">STATISTICS</div>
+        <div class="stat-row"><span class="stat-label">Play time</span><span class="stat-value" id="statTime">0m</span></div>
+        <div class="stat-row"><span class="stat-label">Total clicks</span><span class="stat-value" id="statClicks">0</span></div>
+        <div class="stat-row"><span class="stat-label">Total fish earned</span><span class="stat-value" id="statFish">0</span></div>
+        <div class="stat-row"><span class="stat-label">Current fish</span><span class="stat-value" id="statCurrentFish">0</span></div>
+        <div class="stat-row"><span class="stat-label">Crystals</span><span class="stat-value crystal-text" id="statCrystals">0</span></div>
+        <div class="stat-row"><span class="stat-label">Rebirths</span><span class="stat-value" id="statRebirths">0</span></div>
+        <div class="stat-row"><span class="stat-label">Golden waves</span><span class="stat-value" id="statGoldWaves">0</span></div>
+        <div class="stat-row"><span class="stat-label">Diamond waves</span><span class="stat-value" id="statDiamondWaves">0</span></div>
+        <div class="stat-row"><span class="stat-label">Items bought</span><span class="stat-value" id="statItems">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== COMET EVENT ========== -->
+  <div class="menu comet-event-menu" id="cometEventMenu">
+    <div class="menu-header">
+      <div class="menu-title">COMET EVENT</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content">
+      <div class="comet-event-card">
+        <img class="comet-event-icon" src="EventCometIcon.png" alt="Comet" />
+        <div>
+          <div class="comet-event-title">STELL BALANCE</div>
+          <div class="comet-stell-row"><img src="Stell.png" alt="Stell" /><span id="stellText">0</span></div>
+        </div>
+      </div>
+      <div class="comet-event-card comet-shop-card">
+        <img class="comet-event-icon" src="StellEgg1.png" alt="Cosmic Egg" />
+        <div class="comet-shop-info">
+          <div class="comet-event-title">COSMIC EGG</div>
+          <div class="comet-event-desc">Costs 100 Stell. Opens in 3 stages. Contains 10 Stell pets.</div>
+          <div class="stell-chance-list" id="stellChanceList">
+            <div><b>Common</b>: Stell Slime 33%, Stell Pup 18%, Stell Mushroom 18%</div>
+            <div><b>Rare</b>: Comet Fox 12%, Moon Bunny 14.8899%</div>
+            <div><b>Epic</b>: Nebula Cat 3.5%</div>
+            <div><b>Legendary</b>: Stell Drac 0.1%, Stell Phoenix 0.5%</div>
+            <div><b>Mythic</b>: Stell Angel Demon 0.01%</div>
+            <div><b>Atomic</b>: Atomic Super Cat 0.001%</div>
+          </div>
+          <div class="comet-shop-actions">
+            <button class="recovery-btn ui-click" id="buyStellEgg1">OPEN 1</button>
+            <button class="recovery-btn ui-click" id="buyStellEgg10">OPEN 10</button>
+            <button class="recovery-btn ui-click" id="buyStellEgg100">OPEN 100</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== CHAT ========== -->
+  <div class="menu chat-menu" id="chatMenu">
+    <div class="menu-header">
+      <div class="menu-title">GLOBAL CHAT</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content chat-content">
+      <div class="chat-messages" id="chatMessages">
+        <div class="top-loading">Loading chat...</div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" class="name-input" id="chatInput" placeholder="Message..." maxlength="120" />
+        <button class="recovery-btn ui-click" id="chatSendBtn">SEND</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TRADES ========== -->
+  <div class="menu trade-menu" id="tradeMenu">
+    <div class="menu-header">
+      <div class="menu-title">TRADES</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="shop-tabs trade-tabs">
+      <button class="shop-tab active ui-click" data-trade-tab="plaza">PLAZA</button>
+      <button class="shop-tab ui-click" data-trade-tab="players">PLAYERS</button>
+    </div>
+    <div class="menu-content trade-content">
+      <div class="trade-tab-panel active" data-trade-panel="plaza">
+        <div class="trade-block">
+          <div class="trade-title">SELL PET IN TRADING PLAZA</div>
+          <select class="name-input" id="plazaPetSelect"></select>
+          <input type="text" class="name-input smart-num-input" id="plazaFishPriceInput" placeholder="Fish price (0, 10K...)" value="0" />
+          <input type="text" class="name-input smart-num-input" id="plazaPriceInput" placeholder="Amethyst price (0, 10...)" value="0" />
+          <input type="text" class="name-input smart-num-input" id="plazaStellPriceInput" placeholder="Stell price (0, 10...)" value="0" />
+          <button class="recovery-btn ui-click" id="plazaListBtn">LIST FOR SALE</button>
+        </div>
+        <div class="trade-block">
+          <div class="trade-title">MARKET</div>
+          <div id="plazaListings"><div class="top-loading">Loading...</div></div>
+        </div>
+        <div class="trade-block">
+          <div class="trade-title">MY SALES</div>
+          <div id="plazaMySales"><div class="top-loading">Loading...</div></div>
+        </div>
+      </div>
+      <div class="trade-tab-panel" data-trade-panel="players">
+        <div class="trade-block">
+          <div class="trade-title">ACTIVE PLAYERS</div>
+          <div id="activePlayersList"><div class="top-loading">Loading...</div></div>
+        </div>
+        <div class="trade-block">
+          <div class="trade-title">TRADE REQUESTS</div>
+          <div id="tradeRequestsList"><div class="top-loading">Loading...</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TOP ========== -->
+  <div class="menu" id="topMenu">
+    <div class="menu-header">
+      <div class="menu-title">TOP PLAYERS</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content">
+      <div class="top-tabs">
+        <div class="top-tab active ui-click" data-tab="fish">FISH</div>
+        <div class="top-tab ui-click" data-tab="clicks">CLICKS</div>
+        <div class="top-tab ui-click" data-tab="time">TIME</div>
+        <div class="top-tab ui-click" data-tab="rebirths">REBIRTHS</div>
+        <div class="top-tab ui-click" data-tab="amethysts">AMETHYSTS</div>
+        <div class="top-tab ui-click" data-tab="eggs">EGGS</div>
+      </div>
+      <div id="topList">
+        <div class="top-loading">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== ADMIN PANEL ========== -->
+  <div class="menu" id="adminMenu">
+    <div class="menu-header">
+      <div class="menu-title admin-title"> ADMIN</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content">
+      <div class="admin-section">
+        <div class="admin-label">YOURSELF � QUICK FISH</div>
+        <div class="admin-row">
+          <button class="admin-btn ui-click" data-addfish="100">+100</button>
+          <button class="admin-btn ui-click" data-addfish="1000">+1K</button>
+          <button class="admin-btn ui-click" data-addfish="10000">+10K</button>
+          <button class="admin-btn ui-click" data-addfish="100000">+100K</button>
+          <button class="admin-btn ui-click" data-addfish="1000000">+1M</button>
+        </div>
+      </div>
+      <div class="admin-section admin-crystal-section">
+        <div class="admin-label crystal-admin-label"> YOURSELF � CRYSTALS</div>
+        <div class="admin-row">
+          <button class="admin-btn crystal-admin ui-click" data-addcrystal="1">+1</button>
+          <button class="admin-btn crystal-admin ui-click" data-addcrystal="10">+10</button>
+          <button class="admin-btn crystal-admin ui-click" data-addcrystal="100">+100</button>
+          <button class="admin-btn crystal-admin ui-click" data-addcrystal="1000">+1K</button>
+        </div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input smart-num-input" id="adminCustomCrystal" placeholder="�crystals (10, 100...)" />
+          <button class="admin-btn crystal-admin ui-click" id="adminCustomCrystalBtn">ADD</button>
+        </div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input smart-num-input" id="adminCustomStell" placeholder="�Stell (10, 1K...)" />
+          <button class="admin-btn amethyst-admin ui-click" id="adminCustomStellBtn">ADD STELL</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminStellAllBtn">STELL ALL</button>
+        </div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-label">YOURSELF � CUSTOM VALUES</div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input smart-num-input" id="adminCustomFish" placeholder="�fish (10K, 5M, 1B...)" />
+          <button class="admin-btn ui-click" id="adminCustomFishBtn">ADD FISH</button>
+        </div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input smart-num-input" id="adminCustomClick" placeholder="click power (1K, 5M...)" />
+          <button class="admin-btn ui-click" id="adminCustomClickBtn">SET CLICK</button>
+        </div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input smart-num-input" id="adminCustomAuto" placeholder="auto/sec (100, 10K...)" />
+          <button class="admin-btn ui-click" id="adminCustomAutoBtn">SET AUTO</button>
+        </div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-label">YOURSELF � WAVES</div>
+        <div class="admin-row">
+          <button class="admin-btn gold-admin ui-click" id="adminGoldWave">GOLD WAVE</button>
+          <button class="admin-btn diamond-admin ui-click" id="adminDiamondWave">DIAMOND WAVE</button>
+        </div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-label">YOURSELF � SPECIAL WAVES</div>
+        <div class="admin-row">
+          <button class="admin-btn rainbow-admin ui-click" id="adminRainbowWave">RAINBOW x100</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminAmethystWave">AMETHYST EVENT</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminCometEvent">COMET EVENT</button>
+        </div>
+      </div>
+      <div class="admin-section admin-comet-section">
+        <div class="admin-label"> COMET EVENT CONTROL</div>
+        <div class="admin-reward-hint">Global controls: enable/disable timer/event, reset timer, or start now</div>
+        <div class="admin-row">
+          <button class="admin-btn amethyst-admin ui-click" id="adminCometEnableAll">ENABLE COMET</button>
+          <button class="admin-btn danger-admin ui-click" id="adminCometDisableAll">DISABLE COMET</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminCometResetAll">RESET TIMER</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminCometStartAll">START EVENT</button>
+        </div>
+      </div>
+      <div class="admin-section admin-pets-section">
+        <div class="admin-label"> YOURSELF / ALL � PETS & LUCK</div>
+        <div class="admin-reward-hint">&#1042;&#1099;&#1076;&#1072;&#1090;&#1100; &#1087;&#1080;&#1090;&#1086;&#1084;&#1094;&#1072; &#1089;&#1077;&#1073;&#1077; &#1080;&#1083;&#1080; &#1079;&#1072;&#1087;&#1091;&#1089;&#1090;&#1080;&#1090;&#1100; x10 luck event</div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminPetType">
+            <option value="random">RANDOM PET</option>
+            <option value="cat">Cat � Common</option>
+            <option value="dog">Dog � Common</option>
+            <option value="slime">Slime � Rare</option>
+            <option value="draco">Draco � Epic</option>
+            <option value="mooncat">Moon Cat � Legendary</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminPetCount" placeholder="count" value="1" />
+        </div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminEggPetType">
+            <option value="stellangeldemon">Stell Angel Demon Egg</option>
+            <option value="atomicsupercat">Atomic Super Cat Egg</option>
+            <option value="stelldrac">Stell Drac Egg</option>
+            <option value="stellphoenix">Stell Phoenix Egg</option>
+            <option value="imperialcat">Imperial Cat Egg</option>
+            <option value="goldpegasus">Gold Pegasus Egg</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminEggCount" placeholder="egg count" value="1" />
+        </div>
+        <div class="admin-row">
+          <button class="admin-btn ui-click" id="adminGivePetSelf">GIVE PET SELF</button>
+          <button class="admin-btn ui-click" id="adminGivePetAll">GIVE PET ALL</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminGiveEggSelf">EGG SELF</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminGiveEggAll">EGG ALL</button>
+          <button class="admin-btn gold-admin ui-click" id="adminGiveVipSelf">VIP SELF</button>
+          <button class="admin-btn gold-admin ui-click" id="adminGiveVipAll">VIP ALL</button>
+          <button class="admin-btn danger-admin ui-click" id="adminGiveImperialSelf">IMPERIAL SELF</button>
+          <button class="admin-btn danger-admin ui-click" id="adminGiveImperialAll">IMPERIAL ALL</button>
+          <button class="admin-btn gold-admin ui-click" id="adminLuck10Self">x10 LUCK SELF</button>
+          <button class="admin-btn gold-admin ui-click" id="adminLuck10All">x10 LUCK ALL</button>
+        </div>
+      </div>
+      <div class="admin-section admin-promo-section">
+        <div class="admin-label"> PROMO CODES</div>
+        <div class="admin-reward-hint">Create Firebase promo code with rewards and use limit</div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input" id="adminPromoCode" placeholder="CODE (example: FREE100)" />
+          <input type="text" class="admin-input smart-num-input" id="adminPromoMaxUses" placeholder="max uses" value="1" />
+        </div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input smart-num-input" id="adminPromoFish" placeholder="fish reward" />
+          <input type="text" class="admin-input smart-num-input" id="adminPromoCrystals" placeholder="amethysts reward" />
+          <input type="text" class="admin-input smart-num-input" id="adminPromoStell" placeholder="Stell reward" />
+        </div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminPromoPetKey">
+            <option value="">NO PET</option>
+            <option value="random">Random normal pet</option>
+            <option value="cat">Cat</option>
+            <option value="dog">Dog</option>
+            <option value="slime">Slime</option>
+            <option value="draco">Draco</option>
+            <option value="mooncat">Moon Cat</option>
+            <option value="goldpegasus">Gold Pegasus</option>
+            <option value="imperialcat">Imperial Cat</option>
+            <option value="stellangeldemon">Stell Angel Demon</option>
+            <option value="atomicsupercat">Atomic Super Cat</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminPromoPetCount" placeholder="pet count" value="1" />
+        </div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminPromoEggPetKey">
+            <option value="">NO SPECIAL EGG</option>
+            <option value="stellangeldemon">Stell Angel Demon Egg</option>
+            <option value="atomicsupercat">Atomic Super Cat Egg</option>
+            <option value="stelldrac">Stell Drac Egg</option>
+            <option value="stellphoenix">Stell Phoenix Egg</option>
+            <option value="imperialcat">Imperial Cat Egg</option>
+            <option value="goldpegasus">Gold Pegasus Egg</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminPromoEggCount" placeholder="egg count" value="1" />
+        </div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminPromoPotionType">
+            <option value="">NO POTION</option>
+            <option value="luck">Luck Potion</option>
+            <option value="speed">Speed Potion</option>
+            <option value="fish">Fish Potion</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminPromoPotionMinutes" placeholder="potion minutes" />
+        </div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminPromoWaveType">
+            <option value="">NO WAVE</option>
+            <option value="gold">Gold wave</option>
+            <option value="diamond">Diamond wave</option>
+            <option value="rainbow">Rainbow wave</option>
+            <option value="amethyst">Amethyst event</option>
+            <option value="comet">Comet event</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminPromoWaveCount" placeholder="wave count" value="1" />
+        </div>
+        <div class="admin-row">
+          <button class="admin-btn ui-click" id="adminCreatePromoBtn">CREATE / UPDATE CODE</button>
+          <button class="admin-btn danger-admin ui-click" id="adminDisablePromoBtn">DISABLE CODE</button>
+        </div>
+      </div>
+      <div class="admin-section admin-reward-all-section">
+        <div class="admin-label admin-reward-label"> REWARD ALL PLAYERS</div>
+        <div class="admin-reward-hint">&#1054;&#1090;&#1087;&#1088;&#1072;&#1074;&#1080;&#1090;&#1100; &#1088;&#1099;&#1073;&#1091; / &#1082;&#1088;&#1080;&#1089;&#1090;&#1072;&#1083;&#1083;&#1099; / &#1074;&#1086;&#1083;&#1085;&#1091; &#1042;&#1057;&#1045;&#1052;</div>
+        <div class="admin-reward-block">
+          <div class="admin-reward-sub">FISH</div>
+          <div class="admin-input-row">
+            <input type="text" class="admin-input smart-num-input" id="adminRewardAllFish" placeholder="&#1082;&#1086;&#1083;-&#1074;&#1086; &#1088;&#1099;&#1073; (10K, 5M...)" />
+            <button class="admin-btn ui-click" id="adminRewardAllBtn">SEND ALL</button>
+          </div>
+          <div class="admin-row" style="margin-top:6px;">
+            <button class="admin-btn ui-click admin-preset-btn" data-preset-target="adminRewardAllFish" data-preset="1000">+1K</button>
+            <button class="admin-btn ui-click admin-preset-btn" data-preset-target="adminRewardAllFish" data-preset="10000">+10K</button>
+            <button class="admin-btn ui-click admin-preset-btn" data-preset-target="adminRewardAllFish" data-preset="100000">+100K</button>
+            <button class="admin-btn ui-click admin-preset-btn" data-preset-target="adminRewardAllFish" data-preset="1000000">+1M</button>
+          </div>
+        </div>
+        <div class="admin-reward-block">
+          <div class="admin-reward-sub crystal-text">CRYSTALS</div>
+          <div class="admin-input-row">
+            <input type="text" class="admin-input smart-num-input" id="adminRewardAllCrystals" placeholder="&#1082;&#1086;&#1083;-&#1074;&#1086; &#1082;&#1088;&#1080;&#1089;&#1090;&#1072;&#1083;&#1083;&#1086;&#1074;..." />
+            <button class="admin-btn crystal-admin ui-click" id="adminRewardAllCrystalsBtn">SEND ALL</button>
+          </div>
+        </div>
+        <div class="admin-reward-block">
+          <div class="admin-reward-sub">WAVES</div>
+          <div class="admin-row">
+            <button class="admin-btn gold-admin ui-click" id="adminRewardAllGold"> GOLD ALL</button>
+            <button class="admin-btn diamond-admin ui-click" id="adminRewardAllDiamond"> DIAMOND ALL</button>
+          </div>
+        </div>
+        <div class="admin-reward-block">
+          <div class="admin-reward-sub rainbow-text">SPECIAL WAVES</div>
+          <div class="admin-row">
+            <button class="admin-btn rainbow-admin ui-click" id="adminRewardAllRainbow"> RAINBOW ALL</button>
+            <button class="admin-btn amethyst-admin ui-click" id="adminRewardAllAmethyst"> AMETHYST ALL</button>
+            <button class="admin-btn amethyst-admin ui-click" id="adminRewardAllComet"> COMET ALL</button>
+          </div>
+        </div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-label">SYNC ADMIN ACCOUNT</div>
+        <div class="admin-row">
+          <button class="admin-btn ui-click" id="adminPushSave">PUSH TO CLOUD</button>
+          <button class="admin-btn ui-click" id="adminPullSave">PULL FROM CLOUD</button>
+        </div>
+        <div class="admin-input-row" style="margin-top:6px;">
+          <input type="text" class="admin-input" id="adminSyncUid" placeholder="UID to sync from..." />
+          <button class="admin-btn ui-click" id="adminSyncFromUid">SYNC</button>
+        </div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-label">MANAGE PLAYERS</div>
+        <div class="admin-row">
+          <button class="admin-btn ui-click" id="adminViewPlayers">LOAD PLAYERS</button>
+          <button class="admin-btn danger-admin ui-click" id="adminClearTop">CLEAR TOP</button>
+        </div>
+        <input type="text" class="admin-input" id="adminPlayerSearch" placeholder="Search by name or UID..." style="margin-top:8px;width:100%;" />
+        <div class="admin-input-row" style="margin-top:8px;">
+          <input type="text" class="admin-input" id="adminGrantUid" placeholder="UID for admin rights..." />
+          <button class="admin-btn ui-click" id="adminGrantBtn">GRANT ADMIN</button>
+          <button class="admin-btn danger-admin ui-click" id="adminRevokeBtn">REVOKE</button>
+        </div>
+        <div class="admin-input-row" style="margin-top:8px;">
+          <input type="text" class="admin-input" id="adminImportSaveUid" placeholder="UID to import save into..." />
+          <button class="admin-btn ui-click" id="adminImportSaveBtn">IMPORT JSON TO UID</button>
+          <input type="file" id="adminImportSaveFile" accept="application/json,.json,.save" style="display:none" />
+        </div>
+        <div class="admin-reward-hint">Dynamic admins are stored in Firebase: admins/&lt;uid&gt;</div>
+      </div>
+      <div id="adminPlayersList"></div>
+    </div>
+  </div>
+
+  <!-- ========== FIREBASE ========== -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, signInAnonymously, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, EmailAuthProvider, linkWithCredential } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref, set, get, remove, update, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyDfCr33dnJ2crM9BZmFSvlmA5BNcXIJ5yY",
+      authDomain: "catclicker-2998d.firebaseapp.com",
+      databaseURL: "https://catclicker-2998d-default-rtdb.firebaseio.com",
+      projectId: "catclicker-2998d",
+      storageBucket: "catclicker-2998d.firebasestorage.app",
+      messagingSenderId: "185760820116",
+      appId: "1:185760820116:web:95fb8977544eaa13dc7d81",
+      measurementId: "G-HHWZSHN38R"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+    window.fb = { auth, db, signInAnonymously, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, EmailAuthProvider, linkWithCredential, ref, set, get, remove, update, onValue, query, orderByChild, limitToLast };
+    window.dispatchEvent(new Event("firebase-ready"));
+  </script>
+
+  <!-- Smart input formatting -->
+  <script>
+    (function () {
+      const SUFFIXES = [ { v: 1e15, s: "Qa" }, { v: 1e12, s: "T" }, { v: 1e9, s: "B" }, { v: 1e6, s: "M" }, { v: 1e3, s: "K" } ];
+      function fmtLive(n) {
+        if (isNaN(n) || n === null) return "";
+        const neg = n < 0; const abs = Math.abs(n);
+        let str = "";
+        for (const { v, s } of SUFFIXES) { if (abs >= v) { str = (abs / v).toFixed(2).replace(/\.?0+$/, "") + s; break; } }
+        if (!str) str = Math.floor(abs).toString();
+        return (neg ? "-" : "") + str;
+      }
+      function parseSmartInput(str) {
+        if (!str) return NaN;
+        str = String(str).trim().replace(/\s+/g, "").replace(/,/g, "")
+          .replace(/[Кк]/g, "K").replace(/[Мм]/g, "M").replace(/[Вв]/g, "B").replace(/[Тт]/g, "T");
+        const neg = str.startsWith("-");
+        if (neg) str = str.slice(1);
+        str = str.toUpperCase();
+        const map = { QA: 1e15, T: 1e12, B: 1e9, M: 1e6, K: 1e3 };
+        for (const [s, mult] of Object.entries(map)) {
+          if (str.endsWith(s)) { const n = parseFloat(str.slice(0, -s.length)); return isNaN(n) ? NaN : Math.floor((neg ? -1 : 1) * n * mult); }
+        }
+        const n = parseFloat(str);
+        return isNaN(n) ? NaN : Math.floor(neg ? -n : n);
+      }
+      function attachSmartInput(inp) {
+        let hint = inp.nextElementSibling;
+        if (!hint || !hint.classList.contains("smart-hint")) {
+          hint = document.createElement("div");
+          hint.className = "smart-hint";
+          inp.parentNode.insertBefore(hint, inp.nextSibling);
+        }
+        inp.addEventListener("input", () => {
+          const raw = inp.value.trim();
+          if (!raw) { hint.textContent = ""; return; }
+          const val = parseSmartInput(raw);
+          if (isNaN(val)) { hint.textContent = " invalid"; hint.style.color = "#ff4444"; }
+          else { hint.textContent = "= " + fmtLive(val); hint.style.color = "#4ade80"; }
+        });
+        inp.addEventListener("blur", () => { setTimeout(() => { hint.textContent = ""; }, 300); });
+      }
+      function initSmartInputs() {
+        document.querySelectorAll(".smart-num-input").forEach(inp => {
+          if (!inp.dataset.smartAttached) { inp.dataset.smartAttached = "1"; attachSmartInput(inp); }
+        });
+      }
+      initSmartInputs();
+      new MutationObserver(initSmartInputs).observe(document.body, { childList: true, subtree: true });
+    })();
+  </script>
+
+  <!-- Preset buttons -->
+  <script>
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".admin-preset-btn");
+      if (!btn) return;
+      const targetId = btn.dataset.presetTarget;
+      const val = btn.dataset.preset;
+      if (!targetId || !val) return;
+      const inp = document.getElementById(targetId);
+      if (inp) { inp.value = val; inp.dispatchEvent(new Event("input")); }
+    });
+  </script>
+
+  <script charset="UTF-8" src="Upgrades.js"></script>
+  <script charset="UTF-8" src="game.js"></script>
+  <script charset="UTF-8" src="admin.js"></script>
+  <script charset="UTF-8" src="Pet.js"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ffae1df7ba830f6',t:'MTc3OTQ0MzA2Ng=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ffbfb92acef9f10',t:'MTc3OTQ1NDYwNQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
