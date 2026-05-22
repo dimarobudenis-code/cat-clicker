@@ -952,12 +952,12 @@ function initAdmin() {
         </div>
         <div class="admin-player-uid">${uid}</div>
         <div class="admin-player-stats">
-          <span>Score: ${F.formatNum(userData.score || 0)}</span>
+          <span>Score: ${F.formatNum(userData.score ?? lb.fish ?? 0)}</span>
           <span>Click: ${F.formatNum(userData.clickPower || 1)}</span>
           <span>Auto: ${F.formatNum(userData.autoClicker || 0)}</span>
-          <span>Clicks: ${F.formatNum(userStats.totalClicks || 0)}</span>
-          <span>Time: ${F.formatTime(userStats.playTimeSec || 0)}</span>
-          <span>Rebirths: ${userData.rebirthCount || 0}</span>
+          <span>Clicks: ${F.formatNum(userStats.totalClicks ?? lb.clicks ?? 0)}</span>
+          <span>Time: ${F.formatTime(userStats.playTimeSec ?? lb.time ?? 0)}</span>
+          <span>Rebirths: ${userData.rebirthCount ?? lb.rebirths ?? 0}</span>
           <span>Gold: ${userStats.goldWaves || 0}</span>
           <span>Diamond: ${userStats.diamondWaves || 0}</span>
           <span>Items: ${userStats.itemsBought || 0}</span>
@@ -1031,7 +1031,19 @@ function initAdmin() {
       }
 
       if (action === "editstats") {
-        openStatsEditor(targetUid, userData);
+        let freshData = userData || {};
+        try {
+          const freshSnap = await fb.get(fb.ref(fb.db, `users/${targetUid}`));
+          freshData = freshSnap.val() || freshData;
+        } catch (e) { console.warn("Fresh user data read failed", e); }
+        if (!freshData.stats) freshData.stats = {
+          totalFishEarned: lbData.fish || 0,
+          totalClicks: lbData.clicks || 0,
+          playTimeSec: lbData.time || 0
+        };
+        if (freshData.rebirthCount === undefined) freshData.rebirthCount = lbData.rebirths || 0;
+        if (freshData.crystals === undefined) freshData.crystals = lbData.amethysts || 0;
+        openStatsEditor(targetUid, freshData);
         return;
       }
 
@@ -1162,18 +1174,28 @@ function initAdmin() {
   }
 
   function openPlayerDataBackup(targetUid, lbData, userData) {
-    const payload = {
-      exportedByAdmin: S.currentUser?.uid || null,
-      exportedAt: new Date().toISOString(),
-      targetUid,
-      leaderboard: lbData || null,
-      user: userData || null
+    const saveData = userData && Object.keys(userData).length ? userData : {
+      score: lbData?.fish || 0,
+      crystals: lbData?.amethysts || 0,
+      stats: {
+        totalFishEarned: lbData?.fish || 0,
+        totalClicks: lbData?.clicks || 0,
+        playTimeSec: lbData?.time || 0
+      },
+      rebirthCount: lbData?.rebirths || 0,
+      profile: { name: lbData?.name || "Anonymous", avatar: lbData?.avatar || null },
+      vipActive: !!lbData?.vip,
+      imperialActive: !!lbData?.imperial,
+      playerId: lbData?.playerId || null
     };
-    const text = JSON.stringify(payload, null, 2);
+    const protectedPayload = F.createProtectedSavePayloadForData
+      ? F.createProtectedSavePayloadForData(saveData, targetUid)
+      : { type: "catclicker-save", data: saveData };
+    const text = JSON.stringify(protectedPayload, null, 2);
     const modal = document.createElement("div");
     modal.className = "admin-stats-modal";
     modal.innerHTML = `
-      <div style="color:#ffd700;font-size:9px;margin-bottom:8px;">PLAYER DATA BACKUP</div>
+      <div style="color:#ffd700;font-size:9px;margin-bottom:8px;">PLAYER PROTECTED SAVE BACKUP</div>
       <div style="color:#888;font-size:6px;line-height:1.5;word-break:break-all;">UID: ${targetUid}</div>
       <textarea id="adminBackupText" readonly style="width:100%;height:320px;background:#0f1020;color:#fff;border:2px solid #3a3a5a;padding:8px;font-family:monospace;font-size:10px;line-height:1.35;">${F.escapeHtml(text)}</textarea>
       <div class="admin-row" style="margin-top:8px;">
@@ -1300,6 +1322,51 @@ function initAdmin() {
   const adminRevokeBtn = document.getElementById("adminRevokeBtn");
   if (adminGrantBtn && adminGrantUid) adminGrantBtn.addEventListener("click", () => grantAdminToUid(adminGrantUid.value));
   if (adminRevokeBtn && adminGrantUid) adminRevokeBtn.addEventListener("click", () => revokeAdminFromUid(adminGrantUid.value));
+
+  const adminImportSaveUid = document.getElementById("adminImportSaveUid");
+  const adminImportSaveBtn = document.getElementById("adminImportSaveBtn");
+  const adminImportSaveFile = document.getElementById("adminImportSaveFile");
+  if (adminImportSaveBtn && adminImportSaveUid && adminImportSaveFile) {
+    adminImportSaveBtn.addEventListener("click", () => {
+      if (!F.checkAdmin()) return;
+      if (!adminImportSaveUid.value.trim()) { alert("Enter target UID"); return; }
+      adminImportSaveFile.click();
+    });
+    adminImportSaveFile.addEventListener("change", async (e) => {
+      if (!F.checkAdmin() || !window.fb) return;
+      const file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      const targetUid = adminImportSaveUid.value.trim();
+      if (!targetUid) return alert("Enter target UID");
+      try {
+        const parsed = JSON.parse(await file.text());
+        const data = F.normalizeImportedSave ? F.normalizeImportedSave(parsed) : (parsed.data || parsed);
+        if (!data) return alert("Invalid save file");
+        if (!confirm(`Import this save into UID?\n${targetUid}`)) return;
+        await window.fb.set(window.fb.ref(window.fb.db, `users/${targetUid}`), data);
+        await window.fb.set(window.fb.ref(window.fb.db, `leaderboard/${targetUid}`), {
+          uid: targetUid,
+          playerId: data.playerId || null,
+          name: data.profile?.name || "Anonymous",
+          avatar: data.profile?.avatar || null,
+          vip: !!data.vipActive,
+          imperial: !!data.imperialActive,
+          admin: !!data.localAdminGranted,
+          fish: data.stats?.totalFishEarned || 0,
+          clicks: data.stats?.totalClicks || 0,
+          time: data.stats?.playTimeSec || 0,
+          rebirths: data.rebirthCount || 0,
+          amethysts: data.crystals || 0,
+          eggs: data.petSystem?.eggsOpenedTotal || 0,
+          updated: Date.now()
+        });
+        const cmd = { id: Date.now() + "_" + Math.random().toString(36).slice(2,8), type: "replaceSave", data, from: S.currentUser.uid, timestamp: Date.now(), delayMs: 700 };
+        await window.fb.set(window.fb.ref(window.fb.db, `commands/${targetUid}/${cmd.id}`), cmd);
+        alert("✓ Save imported to player");
+      } catch (err) { alert("Import failed: " + err.message); }
+    });
+  }
 
   const adminClearTop = document.getElementById("adminClearTop");
   if (adminClearTop) {

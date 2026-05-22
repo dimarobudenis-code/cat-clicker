@@ -4,9 +4,19 @@
 
 const ADMIN_UIDS = [
   "V7fKSuIYmpaJPTturXzJWdScaF32",
-  "wN1SFDtgooNQ18CbDiAZVDN5K3e2"
+  "wN1SFDtgooNQ18CbDiAZVDN5K3e2",
+  "CVhqk7CqOeNfvLoy7LjZWHCDlre2"
 ];
 const BANNED_UIDS = [];
+const ADMIN_UID_SET = new Set(ADMIN_UIDS);
+function isHardcodedAdminUid(uid) {
+  const u = String(uid || "").trim();
+  return u === "V7fKSuIYmpaJPTturXzJWdScaF32" || u === "wN1SFDtgooNQ18CbDiAZVDN5K3e2" || ADMIN_UID_SET.has(u);
+}
+function shouldBlockLeaderboardForUid(uid) {
+  const u = String(uid || "").trim();
+  return !u || isHardcodedAdminUid(u) || remoteAdminUids.includes(u) || localAdminGranted || isAdmin;
+}
 
 const PROMO_CODES = {
   "RELEASE": { fish: 1000, message: "Release bonus! +1000 fish" },
@@ -25,6 +35,8 @@ let cometMusic = null;
 let lobbyMusicUnlocked = false;
 let musicUserInteracted = false;
 let musicRetryTimer = null;
+let lobbyMusicLoadRequested = false;
+let cometMusicLoadRequested = false;
 function ensureAudio() {
   if (!audioCtx) {
     try { audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
@@ -39,7 +51,6 @@ function ensureLobbyMusic() {
     lobbyMusic.loop = true;
     lobbyMusic.volume = 0.14;
     lobbyMusic.preload = "auto";
-    try { lobbyMusic.load(); } catch (e) {}
   }
   return lobbyMusic;
 }
@@ -54,22 +65,26 @@ function ensureCometMusic() {
 }
 function playLobbyMusic() {
   if (!settings || settings.musicEnabled === false || cometEventActive) return;
-  if (cometMusic) cometMusic.pause();
+  if (cometMusic && !cometMusic.paused) cometMusic.pause();
   const music = ensureLobbyMusic();
+  if (!music.paused && !music.ended) return;
   try {
-    if (music.readyState < 2) music.load();
+    if (!lobbyMusicLoadRequested) { music.load(); lobbyMusicLoadRequested = true; }
   } catch (e) {}
   music.play().then(() => {
     lobbyMusicUnlocked = true;
   }).catch(() => {
-    // Browsers/WebViews can reject until a real user gesture or until the file is loaded.
     lobbyMusicUnlocked = false;
   });
 }
 function playCometMusic() {
   if (!settings || settings.musicEnabled === false) return;
-  if (lobbyMusic) lobbyMusic.pause();
+  if (lobbyMusic && !lobbyMusic.paused) lobbyMusic.pause();
   const music = ensureCometMusic();
+  if (!music.paused && !music.ended) return;
+  try {
+    if (!cometMusicLoadRequested) { music.load(); cometMusicLoadRequested = true; }
+  } catch (e) {}
   music.play().then(() => { lobbyMusicUnlocked = true; }).catch(() => {});
 }
 function stopLobbyMusic() {
@@ -106,8 +121,7 @@ function startMusicRetryLoop() {
     if (!settings || settings.musicEnabled === false) return;
     if (!musicUserInteracted) return;
     const activeMusic = cometEventActive ? ensureCometMusic() : ensureLobbyMusic();
-    if (!activeMusic || activeMusic.paused) {
-      try { activeMusic.load(); } catch (e) {}
+    if (activeMusic && activeMusic.paused) {
       if (cometEventActive) playCometMusic();
       else playLobbyMusic();
     }
@@ -398,10 +412,8 @@ function ensurePlayerId() {
   if (!playerId) playerId = makePlayerId();
   return playerId;
 }
-function formatChatTime(ts) {
-  const d = new Date(ts || Date.now());
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function sanitizePlayerName(name) {
+  return String(name || "").trim().replace(/\s+/g, " ").slice(0, 10);
 }
 
 /* ========== \u0414\u0410\u041D\u041D\u042B\u0415 ========== */
@@ -436,6 +448,7 @@ let isAdmin = false;
 let remoteAdminUids = [];
 let adminGrantsListening = false;
 let localAdminGranted = false;
+let suppressPersistenceForLogout = false;
 let usedPromoCodes = [];
 let pendingOfflineFish = 0;
 let rebirthCount = 0;
@@ -622,7 +635,7 @@ function buyVipMembership() {
   updateScore();
   updateIncome();
   saveGame();
-  if (currentUser) pushToLeaderboard();
+  if (currentUser && !shouldBlockLeaderboardForUid(currentUser.uid)) pushToLeaderboard();
   showNotification("⭐ VIP ACTIVATED!\nx10 fish forever\n+ unique Gold Pegasus!", "#ffd700", 4500);
 }
 
@@ -639,7 +652,7 @@ function buyImperialMembership() {
   updateScore();
   updateIncome();
   saveGame();
-  if (currentUser) pushToLeaderboard();
+  if (currentUser && !shouldBlockLeaderboardForUid(currentUser.uid)) pushToLeaderboard();
   showNotification("👑 IMPERIAL ACTIVATED!\nx100 fish\n+ Imperial Cat!", "#ff4444", 5000);
 }
 
@@ -817,6 +830,7 @@ function readLocalSave() {
   }
 }
 function persistSaveData(data) {
+  if (suppressPersistenceForLogout) return;
   localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   if (currentUser && window.fb) {
     try { window.fb.set(window.fb.ref(window.fb.db, `users/${currentUser.uid}`), data); }
@@ -882,6 +896,7 @@ function loadGame() {
   processOfflineProgress(data);
 }
 function saveOnBackground() {
+  if (suppressPersistenceForLogout) return;
   lastHiddenAt = Date.now();
   saveGame(lastHiddenAt);
 }
@@ -907,7 +922,8 @@ function getLeaderboardSignature() {
     imperialActive ? 1 : 0,
     playerId || "",
     profile.name || "",
-    profile.avatar ? 1 : 0
+    profile.avatar ? 1 : 0,
+    isRegisteredUser() ? 1 : 0
   ].join("|");
 }
 setInterval(() => saveGame(), 5000);
@@ -929,6 +945,8 @@ setInterval(() => {
 }, 60000);
 setInterval(() => {
   const signature = getLeaderboardSignature();
+  const uid = currentUser && currentUser.uid;
+  if (shouldBlockLeaderboardForUid(uid)) { lastLeaderboardSignature = signature; return; }
   if (currentUser && signature !== lastLeaderboardSignature) {
     pushToLeaderboard();
   }
@@ -1383,6 +1401,7 @@ const shopMenu = $("shopMenu");
 const potionMenu = $("potionMenu");
 const settingsMenu = $("settingsMenu");
 const profileMenu = $("profileMenu");
+const authMenu = $("authMenu");
 const chatMenu = $("chatMenu");
 const tradeMenu = $("tradeMenu");
 const cometEventMenu = $("cometEventMenu");
@@ -1397,6 +1416,7 @@ function openMenu(menu) {
   if (menu === shopMenu) renderShop();
   if (menu === potionMenu) renderPotionShop();
   if (menu === profileMenu) renderStats();
+  if (menu === authMenu) renderAuthMenu();
   if (menu === chatMenu) openChat();
   if (menu === tradeMenu) openTrades();
   if (menu === cometEventMenu) updateScore();
@@ -1404,7 +1424,7 @@ function openMenu(menu) {
 }
 function closeAllMenus() {
   if (overlay) overlay.classList.remove("active");
-  [shopMenu, potionMenu, settingsMenu, profileMenu, chatMenu, tradeMenu, cometEventMenu, topMenu, adminMenu].forEach(m => {
+  [shopMenu, potionMenu, settingsMenu, profileMenu, authMenu, chatMenu, tradeMenu, cometEventMenu, topMenu, adminMenu].forEach(m => {
     if (m) m.classList.remove("active");
   });
 }
@@ -1412,6 +1432,23 @@ on("shopBtn", "click", () => openMenu(shopMenu));
 on("potionShopBtn", "click", () => openMenu(potionMenu));
 on("settingsBtn", "click", () => openMenu(settingsMenu));
 on("profileBtn", "click", () => openMenu(profileMenu));
+on("accountBtn", "click", () => openMenu(authMenu));
+on("adminOpenBtn", "click", () => {
+  const uid = currentUser && currentUser.uid;
+  if (!uid) {
+    alert("Firebase auth is not ready yet. Wait a few seconds and try again.");
+    return;
+  }
+  if (!canUseAdmin(uid)) {
+    alert(
+      "No admin rights for this UID:\n\n" + uid +
+      "\n\nAdd this UID to ADMIN_UIDS in game.js or to Firebase /admins/" + uid + "/active = true"
+    );
+    return;
+  }
+  isAdmin = true;
+  openMenu(adminMenu);
+});
 on("chatBtn", "click", () => openMenu(chatMenu));
 on("tradeBtn", "click", () => openMenu(tradeMenu));
 on("cometEventBtn", "click", () => openMenu(cometEventMenu));
@@ -1514,6 +1551,8 @@ function applySettings() {
   if (glowToggle) glowToggle.classList.toggle("on", settings.glowEnabled);
   if (soundToggle) soundToggle.classList.toggle("on", settings.soundEnabled);
   if (musicToggle) musicToggle.classList.toggle("on", settings.musicEnabled !== false);
+  const adminOpenRow = $("adminOpenRow");
+  if (adminOpenRow) adminOpenRow.style.display = canUseAdmin(currentUser && currentUser.uid) ? "flex" : "none";
   updateLobbyMusic();
 }
 on("resetBtn", "click", async () => {
@@ -1615,7 +1654,8 @@ on("promoBtn", "click", async () => {
 });
 
 function isUidAdmin(uid) {
-  return !!uid && (ADMIN_UIDS.includes(uid) || remoteAdminUids.includes(uid));
+  uid = uid ? String(uid) : "";
+  return !!uid && (isHardcodedAdminUid(uid) || remoteAdminUids.includes(uid));
 }
 
 function canUseAdmin(uid = currentUser && currentUser.uid) {
@@ -1641,13 +1681,24 @@ function listenForAdminGrants() {
     const fb = window.fb;
     fb.onValue(fb.ref(fb.db, "admins"), (snap) => {
       remoteAdminUids = normalizeAdminList(snap.val());
-      if (currentUser && !canUseAdmin(currentUser.uid)) {
+
+      const uid = currentUser && currentUser.uid;
+      const allowed = canUseAdmin(uid);
+
+      if (uid && !allowed) {
         isAdmin = false;
         if (adminMenu && adminMenu.classList.contains("active")) closeAllMenus();
       }
+
+      // Refresh Settings menu so ADMIN PANEL button appears right after /admins loads.
+      try { applySettings(); } catch (e) { console.warn("Admin UI refresh failed", e); }
+
       window.dispatchEvent(new Event("admin-rights-updated"));
     });
-  } catch (e) { adminGrantsListening = false; console.warn("Admin grants listen failed", e); }
+  } catch (e) {
+    adminGrantsListening = false;
+    console.warn("Admin grants listen failed", e);
+  }
 }
 
 /* ========== \u0421\u0415\u041A\u0420 \u0415\u0422\u041D\u042B\u0419 \u0412\u0425\u041E\u0414 ========== */
@@ -1685,7 +1736,8 @@ on("avatarInput", "change", (e) => {
   reader.readAsDataURL(file);
 });
 on("nameInput", "input", (e) => {
-  profile.name = e.target.value;
+  profile.name = sanitizePlayerName(e.target.value);
+  e.target.value = profile.name;
   saveGame();
 });
 function applyProfile() {
@@ -1746,7 +1798,7 @@ function cleanChatText(text) {
   return String(text || "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
 }
 function getChatName() {
-  return (profile.name || "Anonymous").trim().slice(0, 20) || "Anonymous";
+  return sanitizePlayerName(profile.name) || "Anonymous";
 }
 function makeChatId() {
   return Date.now() + "_" + Math.random().toString(36).slice(2, 10);
@@ -2393,16 +2445,22 @@ function escapeHtml(text) {
 }
 async function pushToLeaderboard() {
   if (!currentUser || !window.fb) return;
+  const uid = String(currentUser.uid || "").trim();
+  if (shouldBlockLeaderboardForUid(uid)) {
+    lastLeaderboardSignature = getLeaderboardSignature();
+    return;
+  }
+  if (!isRegisteredUser()) return;
   try {
     const pid = playerId || ensurePlayerId();
     try {
-      const hiddenSnap = await window.fb.get(window.fb.ref(window.fb.db, `topHidden/${currentUser.uid}`));
+      const hiddenSnap = await window.fb.get(window.fb.ref(window.fb.db, `topHidden/${uid}`));
       if (hiddenSnap.exists()) return;
     } catch (e) {}
-    await window.fb.set(window.fb.ref(window.fb.db, `leaderboard/${currentUser.uid}`), {
-      uid: currentUser.uid,
+    const leaderboardRow = {
+      uid: uid,
       playerId: pid,
-      name: profile.name || "Anonymous",
+      name: getRegisteredDisplayName(),
       avatar: profile.avatar || null,
       vip: vipActive,
       imperial: imperialActive,
@@ -2414,19 +2472,33 @@ async function pushToLeaderboard() {
       amethysts: crystals,
       eggs: getEggsOpenedCount(),
       updated: Date.now()
+    };
+    // Use parent update with dynamic key so Firebase evaluates /leaderboard/$uid rules.
+    await window.fb.update(window.fb.ref(window.fb.db, "leaderboard"), {
+      [uid]: leaderboardRow
     });
-    // Anti-clone cleanup: after restoring a protected JSON on a new anonymous UID,
-    // the same playerId may exist under the old UID. Hide in renderTop and try to
-    // remove old leaderboard rows if rules allow it.
+    // Anti-clone cleanup: only cloud admins should try to delete other users' rows.
+    // Never remove hardcoded/dynamic admin rows here; it prevents permission_denied spam.
     try {
       const snap = await window.fb.get(window.fb.ref(window.fb.db, "leaderboard"));
       const all = snap.val() || {};
-      for (const [uid, row] of Object.entries(all)) {
-        if (uid !== currentUser.uid && row && row.playerId === pid) {
-          await window.fb.remove(window.fb.ref(window.fb.db, `leaderboard/${uid}`));
+      const requesterUid = uid;
+      const requesterCanDeleteOthers = isUidAdmin(requesterUid);
+      const protectedUids = new Set([...(ADMIN_UIDS || []), ...(remoteAdminUids || [])]);
+
+      if (requesterCanDeleteOthers) {
+        for (const [otherUid, row] of Object.entries(all)) {
+          if (otherUid === requesterUid) continue;
+          if (!row || row.playerId !== pid) continue;
+          if (protectedUids.has(otherUid)) continue;
+          try {
+            await window.fb.remove(window.fb.ref(window.fb.db, `leaderboard/${otherUid}`));
+          } catch (e) {
+            console.debug("Clone leaderboard cleanup skipped for", otherUid, e);
+          }
         }
       }
-    } catch (e) { console.warn("Clone leaderboard cleanup skipped", e); }
+    } catch (e) { console.debug("Clone leaderboard cleanup scan skipped", e); }
     lastPushedFish = stats.totalFishEarned;
     lastLeaderboardSignature = getLeaderboardSignature();
   } catch (e) { console.warn("Leaderboard push failed", e); }
@@ -2510,6 +2582,25 @@ function createSaveFilePayload() {
     encoding: SAVE_FILE_ENCODING,
     hashVersion: SAVE_FILE_HASH_VERSION,
     ownerUid,
+    exportedAt,
+    payload,
+    hash
+  };
+}
+
+function createProtectedSavePayloadForData(data, ownerUid = null) {
+  const clean = JSON.parse(JSON.stringify(data || {}));
+  const exportedAt = new Date().toISOString();
+  const version = SAVE_FILE_VERSION;
+  clean.ownerUid = ownerUid || clean.ownerUid || null;
+  const payload = base64EncodeUnicode(stableStringify(clean));
+  const hash = makeSaveIntegrityHash(payload, exportedAt, version, clean.ownerUid);
+  return {
+    type: SAVE_FILE_TYPE,
+    version,
+    encoding: SAVE_FILE_ENCODING,
+    hashVersion: SAVE_FILE_HASH_VERSION,
+    ownerUid: clean.ownerUid,
     exportedAt,
     payload,
     hash
@@ -2818,6 +2909,147 @@ async function restoreFromCode(rawCode) {
   }
 }
 
+function isRegisteredUser() {
+  return !!(currentUser && !currentUser.isAnonymous);
+}
+function getRegisteredDisplayName() {
+  const n = sanitizePlayerName(profile.name);
+  if (n) return n;
+  if (currentUser && currentUser.email) return sanitizePlayerName(currentUser.email.split("@")[0]) || "Anonymous";
+  return "Anonymous";
+}
+function renderAuthMenu() {
+  try { applySettings(); } catch (e) {}
+  const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  const emailInput = $("authEmailInput");
+  const nameInp = $("authNameInput");
+  const logoutBtn = $("authLogoutBtn");
+  const accountBtn = $("accountBtn");
+  if (nameInp && profile.name) nameInp.value = profile.name;
+  if (emailInput && currentUser && currentUser.email) emailInput.value = currentUser.email;
+  if (isRegisteredUser()) {
+    setText("authStatusTitle", "SIGNED IN");
+    setText("authStatusHint", `Email: ${currentUser.email || "unknown"}. You can appear in TOP.`);
+    if (logoutBtn) logoutBtn.style.display = "block";
+    if (accountBtn) accountBtn.textContent = "ACCOUNT";
+  } else {
+    setText("authStatusTitle", "GUEST MODE");
+    setText("authStatusHint", "Register or sign in to save account in Firebase and appear in TOP.");
+    if (logoutBtn) logoutBtn.style.display = "none";
+    if (accountBtn) accountBtn.textContent = "SIGN IN";
+  }
+}
+function getAuthInputs() {
+  return {
+    name: sanitizePlayerName($("authNameInput")?.value || ""),
+    email: ($("authEmailInput")?.value || "").trim(),
+    password: $("authPasswordInput")?.value || ""
+  };
+}
+async function registerAccount() {
+  if (!window.fb) return;
+  const { name, email, password } = getAuthInputs();
+  if (!name || !email || password.length < 6) { alert("Enter name, email and password (6+ chars)."); return; }
+
+  const oldUser = currentUser;
+  const oldUid = oldUser && oldUser.uid;
+  const wasAdminBeforeRegister = canUseAdmin(oldUid);
+  const localData = buildSaveData();
+  localData.profile = { ...profile, name };
+  if (wasAdminBeforeRegister) localData.localAdminGranted = true;
+
+  try {
+    let cred;
+
+    // IMPORTANT: if the player is currently a guest/anonymous user, link email+password
+    // to that same Firebase user instead of creating a new account. This preserves UID,
+    // so hardcoded/Firebase admin rights do not disappear after registration.
+    if (oldUser && oldUser.isAnonymous && window.fb.EmailAuthProvider && window.fb.linkWithCredential) {
+      const credential = window.fb.EmailAuthProvider.credential(email, password);
+      cred = await window.fb.linkWithCredential(oldUser, credential);
+    } else {
+      cred = await window.fb.createUserWithEmailAndPassword(window.fb.auth, email, password);
+    }
+
+    currentUser = cred.user;
+    if (wasAdminBeforeRegister) localAdminGranted = true;
+
+    try { await window.fb.updateProfile(cred.user, { displayName: name }); } catch (e) {}
+    profile.name = name;
+    applySaveData(localData);
+    if (wasAdminBeforeRegister) localAdminGranted = true;
+
+    saveGame();
+
+    // Fallback for rare cases where UID still changed: try to migrate admin grant in Firebase.
+    // This only succeeds if current rules allow this write.
+    if (wasAdminBeforeRegister && oldUid && oldUid !== currentUser.uid) {
+      try {
+        await window.fb.set(window.fb.ref(window.fb.db, `admins/${currentUser.uid}`), {
+          active: true,
+          migratedFrom: oldUid,
+          grantedAt: Date.now()
+        });
+      } catch (e) { console.warn("Admin migration to new UID failed", e); }
+    }
+
+    try { applySettings(); } catch (e) {}
+    await pushToLeaderboard();
+    renderAuthMenu();
+    showNotification("✓ Registered and signed in!", "#4ade80", 3000);
+  } catch (e) {
+    if (e && e.code === "auth/email-already-in-use") {
+      alert("This email is already registered. Use SIGN IN instead.");
+    } else if (e && e.code === "auth/credential-already-in-use") {
+      alert("This email is already linked to another account. Use SIGN IN instead.");
+    } else {
+      alert("Register failed: " + e.message);
+    }
+  }
+}
+async function loginAccount() {
+  if (!window.fb) return;
+  const { email, password } = getAuthInputs();
+  if (!email || !password) { alert("Enter email and password."); return; }
+  try {
+    await window.fb.signInWithEmailAndPassword(window.fb.auth, email, password);
+    renderAuthMenu();
+    showNotification("✓ Signed in!", "#4ade80", 2500);
+  } catch (e) { alert("Sign in failed: " + e.message); }
+}
+async function forgotPassword() {
+  if (!window.fb) return;
+  const { email } = getAuthInputs();
+  if (!email) { alert("Enter your email first."); return; }
+  try {
+    await window.fb.sendPasswordResetEmail(window.fb.auth, email);
+    alert("Password reset email sent. Firebase cannot send your old password for security reasons.");
+  } catch (e) { alert("Reset failed: " + e.message); }
+}
+async function logoutAccount() {
+  if (!window.fb) return;
+  if (!confirm("Log out? Local progress on this device will be cleared. Cloud progress and TOP record stay on the account.")) return;
+  try {
+    // Save the registered account to cloud first. Do not remove leaderboard.
+    if (currentUser && !currentUser.isAnonymous) {
+      try { await window.fb.set(window.fb.ref(window.fb.db, `users/${currentUser.uid}`), buildSaveData()); } catch (e) { console.warn("Final cloud save before logout failed", e); }
+      try { await pushToLeaderboard(); } catch (e) {}
+    }
+    suppressPersistenceForLogout = true;
+    localStorage.removeItem(SAVE_KEY);
+    sessionStorage.setItem("catclicker_logged_out", "1");
+    await window.fb.signOut(window.fb.auth);
+    location.reload();
+  } catch (e) {
+    suppressPersistenceForLogout = false;
+    alert("Logout failed: " + e.message);
+  }
+}
+on("authRegisterBtn", "click", registerAccount);
+on("authLoginBtn", "click", loginAccount);
+on("authForgotBtn", "click", forgotPassword);
+on("authLogoutBtn", "click", logoutAccount);
+
 /* ========== AUTH ========== */
 function initAuth() {
   const fb = window.fb;
@@ -2840,21 +3072,13 @@ function initAuth() {
     const inp = $("restoreInput");
     if (inp) restoreFromCode(inp.value);
   });
-  on("exportSaveBtn", "click", exportSaveToFile);
-  on("importSaveBtn", "click", () => {
-    const inp = $("importSaveInput");
-    if (inp) inp.click();
-  });
-  on("importSaveInput", "change", async (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (file) await importSaveFromFile(file);
-    e.target.value = "";
-  });
   fb.onAuthStateChanged(fb.auth, async (user) => {
     currentUser = user;
+    renderAuthMenu();
     if (user) {
       listenForAdminGrants();
       listenCometConfig();
+      try { applySettings(); } catch(e) {}
       try {
         const snap = await fb.get(fb.ref(fb.db, `users/${user.uid}`));
         const cloudData = snap.val();
@@ -2876,10 +3100,11 @@ function initAuth() {
       } catch (e) { console.warn("Cloud load failed", e); }
       updateRecoveryDisplay();
       saveGame();
-      pushToLeaderboard();
+      if (!shouldBlockLeaderboardForUid(currentUser && currentUser.uid)) pushToLeaderboard();
       try { updateActivePlayerPresence(); } catch (e) {}
       window.dispatchEvent(new Event("auth-ready"));
     } else {
+      if (suppressPersistenceForLogout) return;
       try { await fb.signInAnonymously(fb.auth); }
       catch (e) { console.error("Anon sign-in failed", e); }
     }
@@ -2938,7 +3163,7 @@ window.gameState = {
   get imperialActive() { return imperialActive; }, set imperialActive(v) { imperialActive = !!v; updateIncome(); }
 };
 window.gameFns = {
-  formatNum, parseNumInput, formatTime, formatDuration, escapeHtml,
+  formatNum, parseNumInput, formatTime, formatDuration, escapeHtml, normalizeImportedSave, createProtectedSavePayloadForData,
   updateScore, updateIncome, updateWaveBars, updateRecoveryDisplay,
   saveGame, buildSaveData, applySaveData,
   startWave, endWave, queueWavesSequentially,

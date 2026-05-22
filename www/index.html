@@ -67,7 +67,7 @@
 
   <div class="income-bar" id="incomeBar">
     <span class="income-click" id="incomeClick">+1/click</span>
-    <span class="income-sep">•</span>
+    <span class="income-sep"></span>
     <span class="income-sec" id="incomeSec">+0/sec</span>
   </div>
 
@@ -166,6 +166,20 @@
         </div>
         <div class="toggle on ui-click" id="musicToggle"></div>
       </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">ACCOUNT</div>
+          <div class="setting-desc">Sign in to appear in leaderboards and save to Firebase</div>
+        </div>
+        <button class="recovery-btn ui-click" id="accountBtn" style="width:auto;min-width:120px;">SIGN IN</button>
+      </div>
+      <div class="setting-row" id="adminOpenRow" style="display:none;">
+        <div>
+          <div class="setting-label">ADMIN PANEL</div>
+          <div class="setting-desc">Visible only for admin accounts</div>
+        </div>
+        <button class="recovery-btn ui-click" id="adminOpenBtn" style="width:auto;min-width:120px;">OPEN ADMIN</button>
+      </div>
       <div class="setting-row" style="flex-direction:column;align-items:stretch;">
         <div>
           <div class="setting-label">PROMO CODE</div>
@@ -176,6 +190,33 @@
         <button class="recovery-btn ui-click" id="promoBtn" style="margin-top:8px;">ACTIVATE</button>
       </div>
       <button class="danger-btn ui-click" id="resetBtn">RESET PROGRESS</button>
+    </div>
+  </div>
+
+  <!-- ========== AUTH / ACCOUNT ========== -->
+  <div class="menu" id="authMenu">
+    <div class="menu-header">
+      <div class="menu-title">ACCOUNT</div>
+      <button class="close-btn ui-click" data-close><img src="CloseIcon.png" alt="Close" /></button>
+    </div>
+    <div class="menu-content">
+      <div class="recovery-block">
+        <div class="recovery-title" id="authStatusTitle">GUEST MODE</div>
+        <div class="recovery-hint" id="authStatusHint">Sign in to save your account in Firebase and appear in TOP.</div>
+      </div>
+      <div class="recovery-block">
+        <div class="recovery-title">SIGN IN / REGISTER</div>
+        <input type="text" class="name-input" id="authNameInput" placeholder="Name" maxlength="10" />
+        <input type="email" class="name-input" id="authEmailInput" placeholder="Email" autocomplete="email" />
+        <input type="password" class="name-input" id="authPasswordInput" placeholder="Password" autocomplete="current-password" />
+        <div class="admin-row">
+          <button class="recovery-btn ui-click" id="authLoginBtn">SIGN IN</button>
+          <button class="recovery-btn ui-click" id="authRegisterBtn">REGISTER</button>
+        </div>
+        <button class="recovery-btn ui-click" id="authForgotBtn">FORGOT PASSWORD</button>
+        <button class="danger-btn ui-click" id="authLogoutBtn" style="display:none;">LOG OUT</button>
+        <div class="recovery-hint">Forgot password sends Firebase password reset email. Passwords are not stored in the game.</div>
+      </div>
     </div>
   </div>
 
@@ -192,17 +233,10 @@
           <input type="file" id="avatarInput" accept="image/*" style="display:none" />
         </label>
         <div class="profile-info">
-          <input type="text" class="name-input" id="nameInput" placeholder="Your name" maxlength="20" />
+          <input type="text" class="name-input" id="nameInput" placeholder="Your name" maxlength="10" />
         </div>
       </div>
       <div id="authBlock">
-        <div class="recovery-block">
-          <div class="recovery-title">SAVE FILE</div>
-          <div class="recovery-hint">Export your progress to a file or import it back later</div>
-          <button class="recovery-btn ui-click" id="exportSaveBtn">EXPORT SAVE</button>
-          <button class="recovery-btn ui-click" id="importSaveBtn">IMPORT SAVE</button>
-          <input type="file" id="importSaveInput" accept="application/json,.json,.save" style="display:none" />
-        </div>
       </div>
       <div class="stats-block">
         <div class="stats-title">STATISTICS</div>
@@ -344,7 +378,7 @@
     </div>
     <div class="menu-content">
       <div class="admin-section">
-        <div class="admin-label">YOURSELF — QUICK FISH</div>
+        <div class="admin-label">YOURSELF  QUICK FISH</div>
         <div class="admin-row">
           <button class="admin-btn ui-click" data-addfish="100">+100</button>
           <button class="admin-btn ui-click" data-addfish="1000">+1K</button>
@@ -354,7 +388,7 @@
         </div>
       </div>
       <div class="admin-section admin-crystal-section">
-        <div class="admin-label crystal-admin-label"> YOURSELF — CRYSTALS</div>
+        <div class="admin-label crystal-admin-label"> YOURSELF  CRYSTALS</div>
         <div class="admin-row">
           <button class="admin-btn crystal-admin ui-click" data-addcrystal="1">+1</button>
           <button class="admin-btn crystal-admin ui-click" data-addcrystal="10">+10</button>
@@ -362,19 +396,19 @@
           <button class="admin-btn crystal-admin ui-click" data-addcrystal="1000">+1K</button>
         </div>
         <div class="admin-input-row">
-          <input type="text" class="admin-input smart-num-input" id="adminCustomCrystal" placeholder="±crystals (10, 100...)" />
+          <input type="text" class="admin-input smart-num-input" id="adminCustomCrystal" placeholder="crystals (10, 100...)" />
           <button class="admin-btn crystal-admin ui-click" id="adminCustomCrystalBtn">ADD</button>
         </div>
         <div class="admin-input-row">
-          <input type="text" class="admin-input smart-num-input" id="adminCustomStell" placeholder="±Stell (10, 1K...)" />
+          <input type="text" class="admin-input smart-num-input" id="adminCustomStell" placeholder="Stell (10, 1K...)" />
           <button class="admin-btn amethyst-admin ui-click" id="adminCustomStellBtn">ADD STELL</button>
           <button class="admin-btn amethyst-admin ui-click" id="adminStellAllBtn">STELL ALL</button>
         </div>
       </div>
       <div class="admin-section">
-        <div class="admin-label">YOURSELF — CUSTOM VALUES</div>
+        <div class="admin-label">YOURSELF  CUSTOM VALUES</div>
         <div class="admin-input-row">
-          <input type="text" class="admin-input smart-num-input" id="adminCustomFish" placeholder="±fish (10K, 5M, 1B...)" />
+          <input type="text" class="admin-input smart-num-input" id="adminCustomFish" placeholder="fish (10K, 5M, 1B...)" />
           <button class="admin-btn ui-click" id="adminCustomFishBtn">ADD FISH</button>
         </div>
         <div class="admin-input-row">
@@ -387,14 +421,14 @@
         </div>
       </div>
       <div class="admin-section">
-        <div class="admin-label">YOURSELF — WAVES</div>
+        <div class="admin-label">YOURSELF  WAVES</div>
         <div class="admin-row">
           <button class="admin-btn gold-admin ui-click" id="adminGoldWave">GOLD WAVE</button>
           <button class="admin-btn diamond-admin ui-click" id="adminDiamondWave">DIAMOND WAVE</button>
         </div>
       </div>
       <div class="admin-section">
-        <div class="admin-label">YOURSELF — SPECIAL WAVES</div>
+        <div class="admin-label">YOURSELF  SPECIAL WAVES</div>
         <div class="admin-row">
           <button class="admin-btn rainbow-admin ui-click" id="adminRainbowWave">RAINBOW x100</button>
           <button class="admin-btn amethyst-admin ui-click" id="adminAmethystWave">AMETHYST EVENT</button>
@@ -412,16 +446,16 @@
         </div>
       </div>
       <div class="admin-section admin-pets-section">
-        <div class="admin-label"> YOURSELF / ALL — PETS & LUCK</div>
+        <div class="admin-label"> YOURSELF / ALL  PETS & LUCK</div>
         <div class="admin-reward-hint">&#1042;&#1099;&#1076;&#1072;&#1090;&#1100; &#1087;&#1080;&#1090;&#1086;&#1084;&#1094;&#1072; &#1089;&#1077;&#1073;&#1077; &#1080;&#1083;&#1080; &#1079;&#1072;&#1087;&#1091;&#1089;&#1090;&#1080;&#1090;&#1100; x10 luck event</div>
         <div class="admin-input-row">
           <select class="admin-input" id="adminPetType">
             <option value="random">RANDOM PET</option>
-            <option value="cat">Cat — Common</option>
-            <option value="dog">Dog — Common</option>
-            <option value="slime">Slime — Rare</option>
-            <option value="draco">Draco — Epic</option>
-            <option value="mooncat">Moon Cat — Legendary</option>
+            <option value="cat">Cat  Common</option>
+            <option value="dog">Dog  Common</option>
+            <option value="slime">Slime  Rare</option>
+            <option value="draco">Draco  Epic</option>
+            <option value="mooncat">Moon Cat  Legendary</option>
           </select>
           <input type="text" class="admin-input smart-num-input" id="adminPetCount" placeholder="count" value="1" />
         </div>
@@ -576,6 +610,11 @@
           <button class="admin-btn ui-click" id="adminGrantBtn">GRANT ADMIN</button>
           <button class="admin-btn danger-admin ui-click" id="adminRevokeBtn">REVOKE</button>
         </div>
+        <div class="admin-input-row" style="margin-top:8px;">
+          <input type="text" class="admin-input" id="adminImportSaveUid" placeholder="UID to import save into..." />
+          <button class="admin-btn ui-click" id="adminImportSaveBtn">IMPORT JSON TO UID</button>
+          <input type="file" id="adminImportSaveFile" accept="application/json,.json,.save" style="display:none" />
+        </div>
         <div class="admin-reward-hint">Dynamic admins are stored in Firebase: admins/&lt;uid&gt;</div>
       </div>
       <div id="adminPlayersList"></div>
@@ -585,7 +624,7 @@
   <!-- ========== FIREBASE ========== -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getAuth, signInAnonymously, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, EmailAuthProvider, linkWithCredential } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getDatabase, ref, set, get, remove, update, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
     const firebaseConfig = {
       apiKey: "AIzaSyDfCr33dnJ2crM9BZmFSvlmA5BNcXIJ5yY",
@@ -600,7 +639,7 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
-    window.fb = { auth, db, signInAnonymously, signOut, onAuthStateChanged, ref, set, get, remove, update, onValue, query, orderByChild, limitToLast };
+    window.fb = { auth, db, signInAnonymously, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile, EmailAuthProvider, linkWithCredential, ref, set, get, remove, update, onValue, query, orderByChild, limitToLast };
     window.dispatchEvent(new Event("firebase-ready"));
   </script>
 
@@ -672,5 +711,5 @@
   <script charset="UTF-8" src="game.js"></script>
   <script charset="UTF-8" src="admin.js"></script>
   <script charset="UTF-8" src="Pet.js"></script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ffae1df7ba830f6',t:'MTc3OTQ0MzA2Ng=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ffb51618a53ffed',t:'MTc3OTQ0NzYzNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

@@ -2360,3 +2360,31 @@ body.atomic-active-shake {
   70% { transform: scale(.92); }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* ========== TOP NAME HARD LIMIT FIX ========== */
+.top-entry {
+  overflow: hidden;
+}
+.top-name {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.top-name.vip-name,
+.top-name.imperial-name {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  padding: 0 8px;
+}
+.top-name.imperial-name::before,
+.top-name.imperial-name::after {
+  display: none !important;
+}
+@media (max-width: 560px) {
+  .top-name { font-size: 7px !important; }
+  .top-entry { gap: 6px; padding: 8px; }
+  .top-value { font-size: 7px !important; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
+}
