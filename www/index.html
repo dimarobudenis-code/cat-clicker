@@ -401,6 +401,16 @@
           <button class="admin-btn amethyst-admin ui-click" id="adminCometEvent">COMET EVENT</button>
         </div>
       </div>
+      <div class="admin-section admin-comet-section">
+        <div class="admin-label"> COMET EVENT CONTROL</div>
+        <div class="admin-reward-hint">Global controls: enable/disable timer/event, reset timer, or start now</div>
+        <div class="admin-row">
+          <button class="admin-btn amethyst-admin ui-click" id="adminCometEnableAll">ENABLE COMET</button>
+          <button class="admin-btn danger-admin ui-click" id="adminCometDisableAll">DISABLE COMET</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminCometResetAll">RESET TIMER</button>
+          <button class="admin-btn amethyst-admin ui-click" id="adminCometStartAll">START EVENT</button>
+        </div>
+      </div>
       <div class="admin-section admin-pets-section">
         <div class="admin-label"> YOURSELF / ALL — PETS & LUCK</div>
         <div class="admin-reward-hint">&#1042;&#1099;&#1076;&#1072;&#1090;&#1100; &#1087;&#1080;&#1090;&#1086;&#1084;&#1094;&#1072; &#1089;&#1077;&#1073;&#1077; &#1080;&#1083;&#1080; &#1079;&#1072;&#1087;&#1091;&#1089;&#1090;&#1080;&#1090;&#1100; x10 luck event</div>
@@ -466,6 +476,18 @@
             <option value="atomicsupercat">Atomic Super Cat</option>
           </select>
           <input type="text" class="admin-input smart-num-input" id="adminPromoPetCount" placeholder="pet count" value="1" />
+        </div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminPromoEggPetKey">
+            <option value="">NO SPECIAL EGG</option>
+            <option value="stellangeldemon">Stell Angel Demon Egg</option>
+            <option value="atomicsupercat">Atomic Super Cat Egg</option>
+            <option value="stelldrac">Stell Drac Egg</option>
+            <option value="stellphoenix">Stell Phoenix Egg</option>
+            <option value="imperialcat">Imperial Cat Egg</option>
+            <option value="goldpegasus">Gold Pegasus Egg</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminPromoEggCount" placeholder="egg count" value="1" />
         </div>
         <div class="admin-input-row">
           <select class="admin-input" id="adminPromoPotionType">

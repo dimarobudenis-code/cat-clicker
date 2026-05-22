@@ -390,6 +390,38 @@ function initAdmin() {
     });
   }
 
+  async function writeCometConfig(cfg) {
+    if (!F.checkAdmin() || !window.fb) return;
+    try {
+      await window.fb.update(window.fb.ref(window.fb.db, "cometConfig"), { ...cfg, updatedBy: S.currentUser.uid, updatedAt: Date.now() });
+    } catch (e) { alert("Comet config failed: " + e.message); }
+  }
+  const adminCometEnableAll = document.getElementById("adminCometEnableAll");
+  if (adminCometEnableAll) adminCometEnableAll.addEventListener("click", async () => {
+    await writeCometConfig({ enabled: true });
+    if (F.setCometSystemEnabled) F.setCometSystemEnabled(true);
+    alert("✓ Comet enabled globally");
+  });
+  const adminCometDisableAll = document.getElementById("adminCometDisableAll");
+  if (adminCometDisableAll) adminCometDisableAll.addEventListener("click", async () => {
+    await writeCometConfig({ enabled: false });
+    if (F.setCometSystemEnabled) F.setCometSystemEnabled(false);
+    alert("✓ Comet disabled globally");
+  });
+  const adminCometResetAll = document.getElementById("adminCometResetAll");
+  if (adminCometResetAll) adminCometResetAll.addEventListener("click", async () => {
+    await writeCometConfig({ enabled: true, cycleStartedAt: Date.now() });
+    if (F.resetCometTimer) F.resetCometTimer();
+    alert("✓ Comet timer reset globally");
+  });
+  const adminCometStartAll = document.getElementById("adminCometStartAll");
+  if (adminCometStartAll) adminCometStartAll.addEventListener("click", async () => {
+    const startAt = Date.now() - 10 * 60 * 1000;
+    await writeCometConfig({ enabled: true, cycleStartedAt: startAt });
+    if (F.forceStartCometEvent) F.forceStartCometEvent();
+    alert("✓ Comet event started globally");
+  });
+
   const adminGivePetSelf = document.getElementById("adminGivePetSelf");
   const adminPetType = document.getElementById("adminPetType");
   const adminPetCount = document.getElementById("adminPetCount");
@@ -513,7 +545,10 @@ function initAdmin() {
       waveType: document.getElementById("adminPromoWaveType")?.value || "",
       waveCount: F.parseNumInput(document.getElementById("adminPromoWaveCount")?.value || "1") || 1
     };
+    rewards.eggPetKey = document.getElementById("adminPromoEggPetKey")?.value || "";
+    rewards.eggCount = F.parseNumInput(document.getElementById("adminPromoEggCount")?.value || "1") || 1;
     if (!rewards.petKey) { delete rewards.petKey; delete rewards.petCount; }
+    if (!rewards.eggPetKey) { delete rewards.eggPetKey; delete rewards.eggCount; }
     if (!rewards.potionType || rewards.potionMinutes <= 0) { delete rewards.potionType; delete rewards.potionMinutes; }
     if (!rewards.waveType) { delete rewards.waveType; delete rewards.waveCount; }
     Object.keys(rewards).forEach(k => { if ((rewards[k] === 0 || rewards[k] === "") && !["petCount","waveCount"].includes(k)) delete rewards[k]; });

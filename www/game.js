@@ -264,7 +264,17 @@ const on = (id, event, handler) => {
 };
 
 /* ========== \u0423\u0412\u0415\u0414\u041E\u041C\u041B\u0415\u041D\u0418\u042F ========== */
+const notificationQueue = [];
+let notificationShowing = false;
 function showNotification(text, color = "#4ade80", duration = 3000) {
+  notificationQueue.push({ text, color, duration });
+  if (!notificationShowing) showNextNotification();
+}
+function showNextNotification() {
+  const item = notificationQueue.shift();
+  if (!item) { notificationShowing = false; return; }
+  notificationShowing = true;
+  const { text, color, duration } = item;
   const notif = document.createElement("div");
   notif.className = "game-notification";
   notif.style.cssText = `
@@ -278,7 +288,10 @@ function showNotification(text, color = "#4ade80", duration = 3000) {
   `;
   notif.textContent = text;
   document.body.appendChild(notif);
-  setTimeout(() => { if (notif.parentNode) notif.remove(); }, duration);
+  setTimeout(() => {
+    if (notif.parentNode) notif.remove();
+    setTimeout(showNextNotification, 180);
+  }, duration);
 }
 (function injectNotifCSS() {
   const style = document.createElement("style");
@@ -455,6 +468,8 @@ const COMET_EVENT_MS = 5 * 60 * 1000;
 const COMET_CYCLE_MS = COMET_COOLDOWN_MS + COMET_EVENT_MS;
 let cometCycleStartedAt = Date.now();
 let cometEventActive = false;
+let cometSystemEnabled = true;
+let cometConfigListening = false;
 let cometSpawnTimer = null;
 let activeComets = 0;
 const MAX_ACTIVE_COMETS = 1;
@@ -787,7 +802,7 @@ function buildSaveData(lastOnlineOverride = Date.now()) {
     rebirthCount, rebirthMultiplier, potions, vipActive, imperialActive,
     shopOwned: shopItemsData.map(i => i.owned),
     petSystem: window.petSystemApi?.getSaveData?.() || undefined,
-    stats, profile, playerId, settings, usedPromoCodes, localAdminGranted, cometCycleStartedAt,
+    stats, profile, playerId, settings, usedPromoCodes, localAdminGranted, cometCycleStartedAt, cometSystemEnabled,
     lastOnline: lastOnlineOverride
   };
 }
@@ -836,6 +851,7 @@ function applySaveData(data) {
   if (data.usedPromoCodes) usedPromoCodes = data.usedPromoCodes;
   localAdminGranted = !!data.localAdminGranted;
   if (data.cometCycleStartedAt) cometCycleStartedAt = data.cometCycleStartedAt;
+  if (data.cometSystemEnabled !== undefined) cometSystemEnabled = data.cometSystemEnabled !== false;
   soundEnabled = settings.soundEnabled !== false;
   updateScore();
   updateIncome();
@@ -981,6 +997,14 @@ function formatCometTimer(ms) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 function updateCometEvent() {
+  if (!cometSystemEnabled) {
+    if (cometTimer) cometTimer.style.display = "none";
+    if (cometEventBtn) cometEventBtn.style.display = "none";
+    if (cometEventActive) { cometEventActive = false; stopCometEventEffects(); updateLobbyMusic(); }
+    return;
+  }
+  if (cometTimer) cometTimer.style.display = "";
+  if (cometEventBtn) cometEventBtn.style.display = "";
   const phase = getCometPhase();
   if (cometTimer) {
     cometTimer.textContent = phase.active ? `☄ EVENT ${formatCometTimer(phase.remaining)}` : `☄ ${formatCometTimer(phase.remaining)}`;
@@ -1010,9 +1034,37 @@ function stopCometEventEffects() {
   if (settings.musicEnabled !== false) playLobbyMusic();
 }
 function forceStartCometEvent() {
+  cometSystemEnabled = true;
   cometCycleStartedAt = Date.now() - COMET_COOLDOWN_MS;
   saveGame();
   updateCometEvent();
+}
+function setCometSystemEnabled(enabled) {
+  cometSystemEnabled = enabled !== false;
+  if (!cometSystemEnabled) {
+    if (cometSpawnTimer) { clearInterval(cometSpawnTimer); cometSpawnTimer = null; }
+    document.querySelectorAll(".falling-comet").forEach(c => c.remove());
+    activeComets = 0;
+  }
+  saveGame();
+  updateCometEvent();
+}
+function resetCometTimer() {
+  cometCycleStartedAt = Date.now();
+  saveGame();
+  updateCometEvent();
+}
+function listenCometConfig() {
+  if (cometConfigListening || !window.fb) return;
+  cometConfigListening = true;
+  try {
+    window.fb.onValue(window.fb.ref(window.fb.db, "cometConfig"), (snap) => {
+      const cfg = snap.val() || {};
+      if (cfg.enabled !== undefined) cometSystemEnabled = cfg.enabled !== false;
+      if (cfg.cycleStartedAt) cometCycleStartedAt = cfg.cycleStartedAt;
+      updateCometEvent();
+    });
+  } catch (e) { cometConfigListening = false; console.warn("Comet config listen failed", e); }
 }
 function setCometImageWithFallback(img) {
   const sources = ["Comet.png", "comet.png", "Comet.PNG"];
@@ -1488,6 +1540,10 @@ async function applyPromoReward(reward) {
   if (reward.petKey) {
     const count = Math.max(1, parseInt(reward.petCount || 1, 10) || 1);
     try { window.petSystemApi?.adminAddPets?.(reward.petKey, count, { silent: true }); } catch (e) {}
+  }
+  if (reward.eggPetKey) {
+    const count = Math.max(1, parseInt(reward.eggCount || 1, 10) || 1);
+    try { window.petSystemApi?.openForcedPetEgg?.(reward.eggPetKey, count); } catch (e) {}
   }
   if (reward.potionType && reward.potionMinutes) {
     const type = reward.potionType;
@@ -2798,6 +2854,7 @@ function initAuth() {
     currentUser = user;
     if (user) {
       listenForAdminGrants();
+      listenCometConfig();
       try {
         const snap = await fb.get(fb.ref(fb.db, `users/${user.uid}`));
         const cloudData = snap.val();
@@ -2886,7 +2943,7 @@ window.gameFns = {
   saveGame, buildSaveData, applySaveData,
   startWave, endWave, queueWavesSequentially,
   playRewardSound, playWaveSound, playBuySound, playEggCrackSound, playEggRevealSound, showNotification,
-  openMenu, closeAllMenus, renderShop, renderPotionShop, renderStats, loadTop, renderTop, pushToLeaderboard, postSystemChat, forceStartCometEvent,
+  openMenu, closeAllMenus, renderShop, renderPotionShop, renderStats, loadTop, renderTop, pushToLeaderboard, postSystemChat, forceStartCometEvent, setCometSystemEnabled, resetCometTimer,
   checkAdmin, isUidAdmin, canUseAdmin, spawnFlyingFish, spawnFlyingCrystal,
   getRebirthCost, doRebirth, getClickIncome, getAutoIncome, getPetLuckMult, updatePotionStatusBar, grantVipPetIfPossible, grantImperialPetIfPossible
 };
