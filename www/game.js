@@ -23,6 +23,8 @@ let soundEnabled = true;
 let lobbyMusic = null;
 let cometMusic = null;
 let lobbyMusicUnlocked = false;
+let musicUserInteracted = false;
+let musicRetryTimer = null;
 function ensureAudio() {
   if (!audioCtx) {
     try { audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
@@ -37,6 +39,7 @@ function ensureLobbyMusic() {
     lobbyMusic.loop = true;
     lobbyMusic.volume = 0.14;
     lobbyMusic.preload = "auto";
+    try { lobbyMusic.load(); } catch (e) {}
   }
   return lobbyMusic;
 }
@@ -53,7 +56,15 @@ function playLobbyMusic() {
   if (!settings || settings.musicEnabled === false || cometEventActive) return;
   if (cometMusic) cometMusic.pause();
   const music = ensureLobbyMusic();
-  music.play().then(() => { lobbyMusicUnlocked = true; }).catch(() => {});
+  try {
+    if (music.readyState < 2) music.load();
+  } catch (e) {}
+  music.play().then(() => {
+    lobbyMusicUnlocked = true;
+  }).catch(() => {
+    // Browsers/WebViews can reject until a real user gesture or until the file is loaded.
+    lobbyMusicUnlocked = false;
+  });
 }
 function playCometMusic() {
   if (!settings || settings.musicEnabled === false) return;
@@ -75,14 +86,13 @@ function duckLobbyMusic(ms = 260) {
   }, ms);
 }
 function updateLobbyMusic() {
-  if (settings.musicEnabled === false) stopLobbyMusic();
-  else if (lobbyMusicUnlocked) {
-    if (cometEventActive) playCometMusic();
-    else playLobbyMusic();
-  }
+  if (settings.musicEnabled === false) { stopLobbyMusic(); return; }
+  if (cometEventActive) playCometMusic();
+  else playLobbyMusic();
 }
 function unlockLobbyMusic() {
-  if (settings && settings.musicEnabled !== false && !lobbyMusicUnlocked) {
+  musicUserInteracted = true;
+  if (settings && settings.musicEnabled !== false) {
     if (cometEventActive) playCometMusic();
     else playLobbyMusic();
   }
@@ -90,6 +100,20 @@ function unlockLobbyMusic() {
 ["pointerdown", "touchstart", "keydown", "click"].forEach((ev) => {
   document.addEventListener(ev, unlockLobbyMusic, { passive: true });
 });
+function startMusicRetryLoop() {
+  if (musicRetryTimer) return;
+  musicRetryTimer = setInterval(() => {
+    if (!settings || settings.musicEnabled === false) return;
+    if (!musicUserInteracted) return;
+    const activeMusic = cometEventActive ? ensureCometMusic() : ensureLobbyMusic();
+    if (!activeMusic || activeMusic.paused) {
+      try { activeMusic.load(); } catch (e) {}
+      if (cometEventActive) playCometMusic();
+      else playLobbyMusic();
+    }
+  }, 2000);
+}
+startMusicRetryLoop();
 function playUIClick() {
   if (!soundEnabled) return;
   const c = ensureAudio(); if (!c) return;
@@ -1426,6 +1450,7 @@ on("soundToggle", "click", () => {
   applySettings(); saveGame();
 });
 on("musicToggle", "click", () => {
+  musicUserInteracted = true;
   settings.musicEnabled = settings.musicEnabled === false;
   applySettings();
   updateLobbyMusic();
@@ -1453,16 +1478,73 @@ on("resetBtn", "click", async () => {
 });
 
 /* ========== \u0420\u045F\u0420 \u041E\u041C\u041E\u041A\u041E\u0414\u042B ========== */
-function activatePromoCode(rawCode) {
+async function applyPromoReward(reward) {
+  if (!reward || typeof reward !== "object") return;
+  if (reward.fish) { score += reward.fish; stats.totalFishEarned += reward.fish; }
+  if (reward.crystals) crystals += reward.crystals;
+  if (reward.stell) stell += reward.stell;
+  if (reward.clickPower) clickPower += reward.clickPower;
+  if (reward.autoClicker) autoClicker += reward.autoClicker;
+  if (reward.petKey) {
+    const count = Math.max(1, parseInt(reward.petCount || 1, 10) || 1);
+    try { window.petSystemApi?.adminAddPets?.(reward.petKey, count, { silent: true }); } catch (e) {}
+  }
+  if (reward.potionType && reward.potionMinutes) {
+    const type = reward.potionType;
+    const dur = Math.max(1, Number(reward.potionMinutes) || 1) * 60 * 1000;
+    if (potions[type] !== undefined) potions[type] = Math.max(Date.now(), potions[type] || 0) + dur;
+  }
+  if (reward.waveType) {
+    const count = Math.max(1, parseInt(reward.waveCount || 1, 10) || 1);
+    const waves = [];
+    for (let i = 0; i < count; i++) waves.push({ type: reward.waveType });
+    if (reward.waveType === "comet") forceStartCometEvent();
+    else if (reward.waveType === "gold" || reward.waveType === "diamond") queueWavesSequentially(waves);
+    else if (reward.waveType === "rainbow") startWave("rainbow", 100, 300);
+    else if (reward.waveType === "amethyst") startWave("amethyst", 1, 300);
+  }
+  if (reward.queueWaves && reward.queueWaves.length) queueWavesSequentially(reward.queueWaves);
+}
+
+async function activateDynamicPromoCode(code) {
+  if (!window.fb) return false;
+  const fb = window.fb;
+  const snap = await fb.get(fb.ref(fb.db, `promoCodes/${code}`));
+  const promo = snap.val();
+  if (!promo || promo.active === false) return false;
+  const uid = currentUser?.uid || ensurePlayerId();
+  const usedBy = promo.usedBy || {};
+  if (usedBy[uid] || usedPromoCodes.includes(code)) { alert("Code already used!"); return true; }
+  const maxUses = Number(promo.maxUses || 1);
+  const usedCount = Number(promo.usedCount || 0);
+  if (maxUses > 0 && usedCount >= maxUses) { alert("Code use limit reached!"); return true; }
+  await applyPromoReward(promo.rewards || {});
+  usedPromoCodes.push(code);
+  updateScore();
+  updatePotionStatusBar();
+  saveGame();
+  try {
+    await fb.update(fb.ref(fb.db, `promoCodes/${code}`), { usedCount: usedCount + 1, updatedAt: Date.now() });
+    await fb.set(fb.ref(fb.db, `promoCodes/${code}/usedBy/${uid}`), { at: Date.now(), name: profile.name || "Anonymous" });
+  } catch (e) { console.warn("Promo usage write failed", e); }
+  playRewardSound();
+  showNotification("✓ " + (promo.message || "Promo activated!"), "#4ade80", 4000);
+  const inp = $("promoInput");
+  if (inp) inp.value = "";
+  return true;
+}
+
+async function activatePromoCode(rawCode) {
   if (!rawCode) return;
   const code = rawCode.trim().toUpperCase();
+  try {
+    const handledDynamic = await activateDynamicPromoCode(code);
+    if (handledDynamic) return;
+  } catch (e) { console.warn("Dynamic promo check failed", e); }
   if (!PROMO_CODES[code]) { alert("Invalid code!"); return; }
   if (usedPromoCodes.includes(code)) { alert("Code already used!"); return; }
   const reward = PROMO_CODES[code];
-  if (reward.fish) { score += reward.fish; stats.totalFishEarned += reward.fish; }
-  if (reward.clickPower) clickPower += reward.clickPower;
-  if (reward.autoClicker) autoClicker += reward.autoClicker;
-  if (reward.queueWaves && reward.queueWaves.length) queueWavesSequentially(reward.queueWaves);
+  await applyPromoReward(reward);
   usedPromoCodes.push(code);
   playBuySound();
   updateScore();
@@ -1471,9 +1553,9 @@ function activatePromoCode(rawCode) {
   const inp = $("promoInput");
   if (inp) inp.value = "";
 }
-on("promoBtn", "click", () => {
+on("promoBtn", "click", async () => {
   const inp = $("promoInput");
-  if (inp) activatePromoCode(inp.value);
+  if (inp) await activatePromoCode(inp.value);
 });
 
 function isUidAdmin(uid) {
@@ -2090,13 +2172,15 @@ async function loadTop() {
   topList.innerHTML = `<div class="top-loading">Loading...</div>`;
   if (!window.fb) { topList.innerHTML = `<div class="top-loading">Firebase not loaded</div>`; return; }
   try {
-    const [lbRes, hiddenRes] = await Promise.allSettled([
+    const [lbRes, hiddenRes, adminsRes] = await Promise.allSettled([
       window.fb.get(window.fb.ref(window.fb.db, "leaderboard")),
-      window.fb.get(window.fb.ref(window.fb.db, "topHidden"))
+      window.fb.get(window.fb.ref(window.fb.db, "topHidden")),
+      window.fb.get(window.fb.ref(window.fb.db, "admins"))
     ]);
     if (lbRes.status !== "fulfilled") throw lbRes.reason;
     cachedLeaderboard = Object.values(lbRes.value.val() || {});
     hiddenTopUids = hiddenRes.status === "fulfilled" ? Object.keys(hiddenRes.value.val() || {}) : [];
+    if (adminsRes.status === "fulfilled") remoteAdminUids = normalizeAdminList(adminsRes.value.val());
     renderTop(cachedLeaderboard);
   } catch (e) { topList.innerHTML = `<div class="top-loading">Failed to load: ${escapeHtml(e.message || String(e))}</div>`; }
 }
@@ -2108,7 +2192,8 @@ function renderTop(list) {
     topList.innerHTML = `<div class="top-loading">No players yet.<br/>Click cat to be first!</div>`;
     return;
   }
-  const filtered = list.filter(p => !BANNED_UIDS.includes(p.uid) && !hiddenTopUids.includes(p.uid));
+  const adminUidSet = new Set([...(ADMIN_UIDS || []), ...(remoteAdminUids || [])]);
+  const filtered = list.filter(p => p && !BANNED_UIDS.includes(p.uid) && !hiddenTopUids.includes(p.uid) && !p.hidden && !p.admin && !adminUidSet.has(p.uid));
   const byIdentity = new Map();
   filtered.forEach((p) => {
     const key = p.playerId || p.uid || ((p.name || "anon") + "_" + (p.avatar ? "avatar" : "noavatar"));
@@ -2188,7 +2273,10 @@ async function adminHideTopPlayer(player) {
   if (!confirm(`Hide ${player.name || player.uid} from top forever?`)) return;
   try {
     await window.fb.set(window.fb.ref(window.fb.db, `topHidden/${player.uid}`), { hidden: true, by: currentUser.uid, at: Date.now(), name: player.name || "" });
-    hiddenTopUids.push(player.uid);
+    try { await window.fb.update(window.fb.ref(window.fb.db, `leaderboard/${player.uid}`), { hidden: true, updated: Date.now() }); } catch (e) {}
+    try { await window.fb.remove(window.fb.ref(window.fb.db, `leaderboard/${player.uid}`)); } catch (e) {}
+    if (!hiddenTopUids.includes(player.uid)) hiddenTopUids.push(player.uid);
+    cachedLeaderboard = cachedLeaderboard.filter((p) => p.uid !== player.uid);
     renderTop(cachedLeaderboard);
     closeTopAdminModal();
   } catch (e) { alert("Failed: " + e.message); }
@@ -2251,6 +2339,10 @@ async function pushToLeaderboard() {
   if (!currentUser || !window.fb) return;
   try {
     const pid = playerId || ensurePlayerId();
+    try {
+      const hiddenSnap = await window.fb.get(window.fb.ref(window.fb.db, `topHidden/${currentUser.uid}`));
+      if (hiddenSnap.exists()) return;
+    } catch (e) {}
     await window.fb.set(window.fb.ref(window.fb.db, `leaderboard/${currentUser.uid}`), {
       uid: currentUser.uid,
       playerId: pid,
@@ -2258,6 +2350,7 @@ async function pushToLeaderboard() {
       avatar: profile.avatar || null,
       vip: vipActive,
       imperial: imperialActive,
+      admin: canUseAdmin(currentUser.uid),
       fish: stats.totalFishEarned,
       clicks: stats.totalClicks,
       time: stats.playTimeSec,

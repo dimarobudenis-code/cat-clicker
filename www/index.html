@@ -244,7 +244,7 @@
             <div><b>Epic</b>: Nebula Cat 3.5%</div>
             <div><b>Legendary</b>: Stell Drac 0.1%, Stell Phoenix 0.5%</div>
             <div><b>Mythic</b>: Stell Angel Demon 0.01%</div>
-            <div><b>Atomic</b>: Atomic Super Cat 0.0001%</div>
+            <div><b>Atomic</b>: Atomic Super Cat 0.001%</div>
           </div>
           <div class="comet-shop-actions">
             <button class="recovery-btn ui-click" id="buyStellEgg1">OPEN 1</button>
@@ -437,6 +437,59 @@
           <button class="admin-btn danger-admin ui-click" id="adminGiveImperialAll">IMPERIAL ALL</button>
           <button class="admin-btn gold-admin ui-click" id="adminLuck10Self">x10 LUCK SELF</button>
           <button class="admin-btn gold-admin ui-click" id="adminLuck10All">x10 LUCK ALL</button>
+        </div>
+      </div>
+      <div class="admin-section admin-promo-section">
+        <div class="admin-label"> PROMO CODES</div>
+        <div class="admin-reward-hint">Create Firebase promo code with rewards and use limit</div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input" id="adminPromoCode" placeholder="CODE (example: FREE100)" />
+          <input type="text" class="admin-input smart-num-input" id="adminPromoMaxUses" placeholder="max uses" value="1" />
+        </div>
+        <div class="admin-input-row">
+          <input type="text" class="admin-input smart-num-input" id="adminPromoFish" placeholder="fish reward" />
+          <input type="text" class="admin-input smart-num-input" id="adminPromoCrystals" placeholder="amethysts reward" />
+          <input type="text" class="admin-input smart-num-input" id="adminPromoStell" placeholder="Stell reward" />
+        </div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminPromoPetKey">
+            <option value="">NO PET</option>
+            <option value="random">Random normal pet</option>
+            <option value="cat">Cat</option>
+            <option value="dog">Dog</option>
+            <option value="slime">Slime</option>
+            <option value="draco">Draco</option>
+            <option value="mooncat">Moon Cat</option>
+            <option value="goldpegasus">Gold Pegasus</option>
+            <option value="imperialcat">Imperial Cat</option>
+            <option value="stellangeldemon">Stell Angel Demon</option>
+            <option value="atomicsupercat">Atomic Super Cat</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminPromoPetCount" placeholder="pet count" value="1" />
+        </div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminPromoPotionType">
+            <option value="">NO POTION</option>
+            <option value="luck">Luck Potion</option>
+            <option value="speed">Speed Potion</option>
+            <option value="fish">Fish Potion</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminPromoPotionMinutes" placeholder="potion minutes" />
+        </div>
+        <div class="admin-input-row">
+          <select class="admin-input" id="adminPromoWaveType">
+            <option value="">NO WAVE</option>
+            <option value="gold">Gold wave</option>
+            <option value="diamond">Diamond wave</option>
+            <option value="rainbow">Rainbow wave</option>
+            <option value="amethyst">Amethyst event</option>
+            <option value="comet">Comet event</option>
+          </select>
+          <input type="text" class="admin-input smart-num-input" id="adminPromoWaveCount" placeholder="wave count" value="1" />
+        </div>
+        <div class="admin-row">
+          <button class="admin-btn ui-click" id="adminCreatePromoBtn">CREATE / UPDATE CODE</button>
+          <button class="admin-btn danger-admin ui-click" id="adminDisablePromoBtn">DISABLE CODE</button>
         </div>
       </div>
       <div class="admin-section admin-reward-all-section">

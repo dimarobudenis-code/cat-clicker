@@ -497,6 +497,61 @@ function initAdmin() {
     });
   }
 
+  const adminCreatePromoBtn = document.getElementById("adminCreatePromoBtn");
+  const adminDisablePromoBtn = document.getElementById("adminDisablePromoBtn");
+  function readPromoAdminInput() {
+    const code = (document.getElementById("adminPromoCode")?.value || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    const maxUses = F.parseNumInput(document.getElementById("adminPromoMaxUses")?.value || "1");
+    const rewards = {
+      fish: F.parseNumInput(document.getElementById("adminPromoFish")?.value || "0") || 0,
+      crystals: F.parseNumInput(document.getElementById("adminPromoCrystals")?.value || "0") || 0,
+      stell: F.parseNumInput(document.getElementById("adminPromoStell")?.value || "0") || 0,
+      petKey: document.getElementById("adminPromoPetKey")?.value || "",
+      petCount: F.parseNumInput(document.getElementById("adminPromoPetCount")?.value || "1") || 1,
+      potionType: document.getElementById("adminPromoPotionType")?.value || "",
+      potionMinutes: F.parseNumInput(document.getElementById("adminPromoPotionMinutes")?.value || "0") || 0,
+      waveType: document.getElementById("adminPromoWaveType")?.value || "",
+      waveCount: F.parseNumInput(document.getElementById("adminPromoWaveCount")?.value || "1") || 1
+    };
+    if (!rewards.petKey) { delete rewards.petKey; delete rewards.petCount; }
+    if (!rewards.potionType || rewards.potionMinutes <= 0) { delete rewards.potionType; delete rewards.potionMinutes; }
+    if (!rewards.waveType) { delete rewards.waveType; delete rewards.waveCount; }
+    Object.keys(rewards).forEach(k => { if ((rewards[k] === 0 || rewards[k] === "") && !["petCount","waveCount"].includes(k)) delete rewards[k]; });
+    return { code, maxUses: Math.max(1, maxUses || 1), rewards };
+  }
+  if (adminCreatePromoBtn) {
+    adminCreatePromoBtn.addEventListener("click", async () => {
+      if (!F.checkAdmin() || !window.fb) return;
+      const { code, maxUses, rewards } = readPromoAdminInput();
+      if (!code) { alert("Enter code"); return; }
+      if (!Object.keys(rewards).length) { alert("Add at least one reward"); return; }
+      try {
+        await window.fb.update(window.fb.ref(window.fb.db, `promoCodes/${code}`), {
+          active: true,
+          code,
+          maxUses,
+          rewards,
+          message: `Promo ${code} activated!`,
+          createdBy: S.currentUser.uid,
+          updatedAt: Date.now()
+        });
+        alert(`✓ Promo ${code} saved!`);
+      } catch (e) { alert("Failed: " + e.message); }
+    });
+  }
+  if (adminDisablePromoBtn) {
+    adminDisablePromoBtn.addEventListener("click", async () => {
+      if (!F.checkAdmin() || !window.fb) return;
+      const code = (document.getElementById("adminPromoCode")?.value || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+      if (!code) { alert("Enter code"); return; }
+      if (!confirm(`Disable promo ${code}?`)) return;
+      try {
+        await window.fb.update(window.fb.ref(window.fb.db, `promoCodes/${code}`), { active: false, disabledBy: S.currentUser.uid, disabledAt: Date.now() });
+        alert("✓ Promo disabled");
+      } catch (e) { alert("Failed: " + e.message); }
+    });
+  }
+
   /* ========== \u0410\u0414\u041C\u0418\u041D: REWARD ALL ========== */
   const adminRewardAllBtn = document.getElementById("adminRewardAllBtn");
   const adminRewardAllFish = document.getElementById("adminRewardAllFish");

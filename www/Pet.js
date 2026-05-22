@@ -71,7 +71,7 @@
     { key: "stelldrac", name: "Stell Drac", rarity: "Legendary", icon: "StellDrac.png", weight: 1000, sellPrice: 1000 },
     { key: "stellphoenix", name: "Stell Phoenix", rarity: "Legendary", icon: "StellPhoenix.png", weight: 5000, sellPrice: 5000 },
     { key: "stellangeldemon", name: "Stell Angel Demon", rarity: "Mythic", icon: "StellAngelDemon.png", weight: 100, sellPrice: 10000 },
-    { key: "atomicsupercat", name: "Atomic Super Cat", rarity: "Atomic", icon: "AtomicSuperCat.png", weight: 1, sellPrice: 100000 },
+    { key: "atomicsupercat", name: "Atomic Super Cat", rarity: "Atomic", icon: "AtomicSuperCat.png", weight: 10, sellPrice: 100000 },
   ];
 
   const HATCH_ANIMATION_RARITIES = ["Common", "Rare", "Epic", "Legendary", "Mythic", "Atomic", "VIP", "Imperial"];
@@ -1534,7 +1534,9 @@
 
     window.applySaveData = function (data) {
       originalApply(data);
-      loadPetState(data && data.petSystem);
+      // Do not wipe pet inventory/extra slots when older cloud saves have no petSystem.
+      // This was causing bought slots to disappear after auth/cloud sync.
+      if (data && data.petSystem) loadPetState(data.petSystem);
       renderAll();
     };
 
@@ -1956,6 +1958,7 @@
   function openHatchOverlay() {
     clearHatchParticles();
     refs.hatchOverlay.classList.add("active");
+    cleanupHatchSpecialEffects();
   }
 
   function hasActiveHatchWork() {
