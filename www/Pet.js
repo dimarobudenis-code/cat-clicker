@@ -155,6 +155,9 @@
         return state.inventory
           .map(p => ({ id: p.id, key: p.key, name: p.name, rarity: p.rarity, icon: p.icon, sellPrice: p.sellPrice, vipOnly: !!p.vipOnly, imperialOnly: !!p.imperialOnly }));
       },
+      getFreeSlots() {
+        return getFreeSlots();
+      },
       removePetForTrade(petId) {
         return removePetForTrade(petId);
       },
@@ -2696,6 +2699,8 @@
 
   function makeTradePetSnapshot(pet) {
     return {
+      id: pet.id,
+      originalPetId: pet.id,
       key: pet.key,
       name: pet.name,
       rarity: pet.rarity,

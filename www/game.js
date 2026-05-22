@@ -1793,6 +1793,115 @@ let cachedTradeRequests = [];
 let cachedTradeSessions = [];
 let activeTradeSessionId = null;
 const finalizingTradeSessions = new Set();
+const returningTradeSessions = new Set();
+const tradeActionCooldowns = {};
+
+function checkTradeCooldown(key, ms = 1200) {
+  const now = Date.now();
+  const until = tradeActionCooldowns[key] || 0;
+  if (now < until) {
+    showNotification("Cooldown...", "#ff6666", Math.min(1200, until - now + 200));
+    return false;
+  }
+  tradeActionCooldowns[key] = now + ms;
+  return true;
+}
+
+function startButtonCooldown(btn, ms = 1200) {
+  if (!btn || btn.dataset.cooldown === "1") return;
+  const isButton = btn.tagName === "BUTTON" || btn.tagName === "INPUT";
+  const oldText = isButton ? btn.textContent : "";
+  const oldPointerEvents = btn.style.pointerEvents || "";
+  if (isButton) {
+    btn.disabled = true;
+    btn.textContent = "WAIT...";
+  }
+  btn.dataset.cooldown = "1";
+  btn.style.pointerEvents = "none";
+  btn.style.opacity = "0.65";
+  setTimeout(() => {
+    if (!btn.isConnected) return;
+    if (isButton) {
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+    btn.dataset.cooldown = "";
+    btn.style.pointerEvents = oldPointerEvents;
+    btn.style.opacity = "";
+  }, ms);
+}
+
+async function saveCurrentUserDataToCloud() {
+  saveGame();
+  if (currentUser && window.fb) {
+    await window.fb.set(window.fb.ref(window.fb.db, `users/${currentUser.uid}`), buildSaveData());
+  }
+}
+
+function getOfferId(pet) {
+  return String(pet?.offerId || pet?.id || pet?.originalPetId || "");
+}
+
+async function processReturnedTradeSessions(allSessions) {
+  if (!window.fb || !currentUser) return;
+  const myUid = currentUser.uid;
+  for (const session of allSessions) {
+    if (!session || !["cancelled", "failed"].includes(session.status)) continue;
+    if (session.aUid !== myUid && session.bUid !== myUid) continue;
+    if (session.returnedFor && session.returnedFor[myUid]) continue;
+    if (returningTradeSessions.has(session.id)) continue;
+
+    const myOffers = (session.offers?.[myUid] || []).filter(p => p && p.reserved);
+    returningTradeSessions.add(session.id);
+    try {
+      for (const pet of myOffers) {
+        const ret = getPetApiSafe()?.addPetFromTrade?.(pet);
+        if (!ret || !ret.ok) console.warn("Trade return pet failed", ret?.error || pet);
+      }
+      if (myOffers.length) await saveCurrentUserDataToCloud();
+      await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/returnedFor/${myUid}`), true);
+      if (myOffers.length) showNotification("Trade cancelled: your pet(s) returned", "#ffd700", 2200);
+    } catch (e) {
+      console.warn("Trade return processing failed", e);
+    } finally {
+      returningTradeSessions.delete(session.id);
+    }
+  }
+}
+
+function renderTradeChatMessages(session) {
+  const messages = Object.values(session.messages || {})
+    .filter(m => m && typeof m === "object")
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+    .slice(-40);
+  if (!messages.length) return `<div class="chat-muted">Trade chat is empty</div>`;
+  return messages.map((msg) => {
+    const mine = currentUser && msg.uid === currentUser.uid;
+    return `
+      <div class="chat-line ${mine ? "you" : ""}">
+        <div class="chat-meta">
+          <span class="chat-author ${mine ? "vip" : ""}">${escapeHtml(mine ? "YOU" : (msg.name || "Player"))}</span>
+          <span class="chat-time">${formatChatTime(msg.createdAt)}</span>
+        </div>
+        <div class="chat-text">${escapeHtml(msg.text || "")}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function sendTradeChatMessage(session) {
+  if (!window.fb || !currentUser || !session) return;
+  if (!checkTradeCooldown(`tradechat_${session.id}`, 1200)) return;
+  const input = document.getElementById("sessionChatInput");
+  const text = cleanChatText(input && input.value);
+  if (!text) return;
+  const id = makeTradeId();
+  const msg = { id, uid: currentUser.uid, name: getPlayerTradeName(), text, createdAt: Date.now() };
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/messages/${id}`), msg);
+    if (input) input.value = "";
+  } catch (e) { alert("Trade chat failed: " + e.message); }
+}
 
 function cleanChatText(text) {
   return String(text || "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
@@ -1802,6 +1911,10 @@ function getChatName() {
 }
 function makeChatId() {
   return Date.now() + "_" + Math.random().toString(36).slice(2, 10);
+}
+function formatChatTime(ts) {
+  const d = new Date(ts || Date.now());
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 function renderChatMessages(list) {
   if (!chatMessagesEl) return;
@@ -2038,7 +2151,27 @@ function listenTrades() {
       renderTradeUi();
     });
     window.fb.onValue(window.fb.ref(window.fb.db, "tradeSessions"), (snap) => {
-      cachedTradeSessions = Object.values(snap.val() || {}).filter(s => s && s.status === "active" && (s.aUid === currentUser.uid || s.bUid === currentUser.uid));
+      const allSessions = Object.values(snap.val() || {}).filter(Boolean);
+
+      processReturnedTradeSessions(allSessions);
+
+      allSessions.forEach((s) => {
+        if (!s || s.status !== "active" || !currentUser) return;
+        if (s.aUid !== currentUser.uid && s.bUid !== currentUser.uid) return;
+        if (s.completedFor && s.completedFor[s.aUid] && s.completedFor[s.bUid]) {
+          window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${s.id}`), {
+            status: "completed",
+            completedAt: Date.now()
+          }).catch((e) => console.warn("Trade completion cleanup failed", e));
+        }
+      });
+
+      cachedTradeSessions = allSessions.filter(s =>
+        s &&
+        s.status === "active" &&
+        (s.aUid === currentUser.uid || s.bUid === currentUser.uid) &&
+        !(s.completedFor && s.completedFor[currentUser.uid])
+      );
       renderTradeUi();
     });
   } catch (e) { tradeListening = false; console.warn("Trade listen failed", e); }
@@ -2049,6 +2182,7 @@ function openTrades() {
   renderTradeUi();
 }
 async function listPetOnPlaza() {
+  if (!checkTradeCooldown("plaza_list", 1500)) return;
   if (!window.fb || !currentUser) return alert("Firebase not ready");
   const petId = plazaPetSelect?.value;
   if (!petId) return alert("Choose a pet");
@@ -2061,54 +2195,101 @@ async function listPetOnPlaza() {
   const id = makeTradeId();
   const listing = { id, sellerUid: currentUser.uid, sellerName: getPlayerTradeName(), pet: removed.pet, price, prices: { fish: fishPrice, crystals: price, stell: stellPrice }, status: "active", createdAt: Date.now() };
   try {
+    await saveCurrentUserDataToCloud();
     await window.fb.set(window.fb.ref(window.fb.db, `tradeListings/${id}`), listing);
     renderPlazaPetSelect();
     showNotification("Pet listed!", "#4ade80", 2200);
   } catch (e) {
     getPetApiSafe()?.addPetFromTrade?.(removed.pet);
+    try { await saveCurrentUserDataToCloud(); } catch (_) {}
     alert("List failed: " + e.message);
   }
 }
 async function buyPlazaListing(id) {
-  const l = cachedPlazaListings.find(x => x.id === id);
-  if (!l || !currentUser || l.status !== "active" || l.sellerUid === currentUser.uid) return;
-  const prices = getListingPrices(l);
-  if (score < prices.fish) return alert("Not enough fish");
-  if (crystals < prices.crystals) return alert("Not enough amethysts");
-  if (stell < prices.stell) return alert("Not enough Stell");
-  const added = getPetApiSafe()?.addPetFromTrade?.(l.pet);
-  if (!added || !added.ok) return alert(added?.error || "Cannot receive pet");
-  score -= prices.fish;
-  crystals -= prices.crystals;
-  stell -= prices.stell;
-  updateScore();
-  saveGame();
+  if (!checkTradeCooldown(`plaza_buy_${id}`, 1800)) return;
+  if (!window.fb || !currentUser) return;
+
+  const localListing = cachedPlazaListings.find(x => x.id === id);
+  if (!localListing || localListing.status !== "active" || localListing.sellerUid === currentUser.uid) return;
+
   try {
-    await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), { status: "sold", buyerUid: currentUser.uid, buyerName: getPlayerTradeName(), soldAt: Date.now() });
+    const snap = await window.fb.get(window.fb.ref(window.fb.db, `tradeListings/${id}`));
+    const l = snap.val();
+    if (!l || l.status !== "active") return alert("This pet is already sold or unavailable.");
+    if (l.sellerUid === currentUser.uid) return alert("You cannot buy your own listing.");
+
+    const prices = getListingPrices(l);
+    if (score < prices.fish) return alert("Not enough fish");
+    if (crystals < prices.crystals) return alert("Not enough amethysts");
+    if (stell < prices.stell) return alert("Not enough Stell");
+
+    const petApi = getPetApiSafe();
+    if (!petApi || typeof petApi.addPetFromTrade !== "function") return alert("Pet system is not ready yet.");
+    if (typeof petApi.getFreeSlots === "function" && petApi.getFreeSlots() <= 0) return alert("No free pet slots");
+
+    // Server first, local visuals second. If this write is denied, inventory stays unchanged.
+    await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), {
+      status: "sold",
+      buyerUid: currentUser.uid,
+      buyerName: getPlayerTradeName(),
+      soldAt: Date.now()
+    });
+
+    const added = petApi.addPetFromTrade(l.pet);
+    if (!added || !added.ok) {
+      try {
+        await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), {
+          status: "active",
+          buyerUid: null,
+          buyerName: null,
+          soldAt: null
+        });
+      } catch (rollbackErr) { console.warn("Listing rollback failed", rollbackErr); }
+      return alert(added?.error || "Cannot receive pet");
+    }
+
+    score -= prices.fish;
+    crystals -= prices.crystals;
+    stell -= prices.stell;
+    updateScore();
+    await saveCurrentUserDataToCloud();
     showNotification("Pet bought!", "#4ade80", 2200);
-  } catch (e) { alert("Buy update failed: " + e.message); }
+  } catch (e) {
+    alert("Buy failed: " + e.message);
+  }
 }
 async function cancelPlazaListing(id) {
+  if (!checkTradeCooldown(`plaza_cancel_${id}`, 1500)) return;
   const l = cachedPlazaListings.find(x => x.id === id);
   if (!l || !currentUser || l.sellerUid !== currentUser.uid || l.status !== "active") return;
-  const ret = getPetApiSafe()?.addPetFromTrade?.(l.pet);
-  if (!ret || !ret.ok) return alert(ret?.error || "Cannot return pet");
-  try { await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), { status: "cancelled", cancelledAt: Date.now() }); }
+  try {
+    await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), { status: "cancelled", cancelledAt: Date.now() });
+    const ret = getPetApiSafe()?.addPetFromTrade?.(l.pet);
+    if (!ret || !ret.ok) {
+      try { await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), { status: "active", cancelledAt: null }); } catch (_) {}
+      return alert(ret?.error || "Cannot return pet");
+    }
+    await saveCurrentUserDataToCloud();
+  }
   catch (e) { alert("Cancel failed: " + e.message); }
 }
 async function claimPlazaSale(id) {
+  if (!checkTradeCooldown(`plaza_claim_${id}`, 1500)) return;
   const l = cachedPlazaListings.find(x => x.id === id);
   if (!l || !currentUser || l.sellerUid !== currentUser.uid || l.status !== "sold") return;
   const prices = getListingPrices(l);
-  score += prices.fish;
-  crystals += prices.crystals;
-  stell += prices.stell;
-  updateScore();
-  saveGame();
-  try { await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), { status: "claimed", claimedAt: Date.now() }); }
+  try {
+    await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), { status: "claimed", claimedAt: Date.now() });
+    score += prices.fish;
+    crystals += prices.crystals;
+    stell += prices.stell;
+    updateScore();
+    await saveCurrentUserDataToCloud();
+  }
   catch (e) { alert("Claim failed: " + e.message); }
 }
 async function sendPlayerTradeRequest(toUid) {
+  if (!checkTradeCooldown(`trade_req_${toUid}`, 2500)) return;
   if (!window.fb || !currentUser || !toUid || toUid === currentUser.uid) return;
   const id = makeTradeId();
   const req = { id, fromUid: currentUser.uid, fromName: getPlayerTradeName(), toUid, status: "pending", createdAt: Date.now() };
@@ -2118,6 +2299,7 @@ async function sendPlayerTradeRequest(toUid) {
   } catch (e) { alert("Request failed: " + e.message); }
 }
 async function acceptPlayerTradeRequest(id) {
+  if (!checkTradeCooldown(`trade_accept_${id}`, 1800)) return;
   const r = cachedTradeRequests.find(x => x.id === id);
   if (!r || !currentUser || r.toUid !== currentUser.uid) return;
   const sessionId = makeTradeId();
@@ -2129,6 +2311,8 @@ async function acceptPlayerTradeRequest(id) {
     offers: { [r.fromUid]: [], [currentUser.uid]: [] },
     ready: { [r.fromUid]: false, [currentUser.uid]: false },
     completedFor: {},
+    returnedFor: {},
+    messages: {},
     status: "active",
     createdAt: Date.now()
   };
@@ -2139,6 +2323,7 @@ async function acceptPlayerTradeRequest(id) {
   } catch (e) { alert("Accept failed: " + e.message); }
 }
 async function declinePlayerTradeRequest(id) {
+  if (!checkTradeCooldown(`trade_decline_${id}`, 1200)) return;
   const r = cachedTradeRequests.find(x => x.id === id);
   if (!r || !currentUser || r.toUid !== currentUser.uid) return;
   try { await window.fb.update(window.fb.ref(window.fb.db, `tradeRequests/${currentUser.uid}/${id}`), { status: "declined", declinedAt: Date.now() }); }
@@ -2158,9 +2343,29 @@ function renderActiveTradeSession() {
   activeTradeSessionId = session.id;
   const myUid = currentUser.uid;
   const otherUid = session.aUid === myUid ? session.bUid : session.aUid;
+  const completedFor = session.completedFor || {};
+
+  if (completedFor[session.aUid] && completedFor[session.bUid]) {
+    if (window.fb) {
+      window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), {
+        status: "completed",
+        completedAt: Date.now()
+      }).catch((e) => console.warn("Trade status complete failed", e));
+    }
+    activeTradeSessionId = null;
+    if (old) old.remove();
+    return;
+  }
+
+  if (completedFor[myUid]) {
+    activeTradeSessionId = null;
+    if (old) old.remove();
+    return;
+  }
+
   const myOffer = session.offers?.[myUid] || [];
   const theirOffer = session.offers?.[otherUid] || [];
-  const pets = getTradablePetsSafe().filter(p => !myOffer.some(o => o.id === p.id));
+  const pets = getTradablePetsSafe().filter(p => !myOffer.some(o => getOfferId(o) === p.id));
   const ready = session.ready || {};
   let modal = old;
   if (!modal) {
@@ -2173,7 +2378,7 @@ function renderActiveTradeSession() {
     <div class="top-admin-box trade-session-box">
       <div class="top-admin-title">LIVE TRADE WITH ${escapeHtml(session.names?.[otherUid] || "PLAYER")}</div>
       <div class="trade-session-grid">
-        <div class="trade-side"><div class="trade-title">YOU ${ready[myUid] ? "✓" : ""}</div><div class="trade-offer-list">${myOffer.map(p => `<div class="trade-pet-chip">${escapeHtml(p.name)} <button data-session-remove="${escapeHtml(p.id)}">x</button></div>`).join("") || "Empty"}</div></div>
+        <div class="trade-side"><div class="trade-title">YOU ${ready[myUid] ? "✓" : ""}</div><div class="trade-offer-list">${myOffer.map(p => `<div class="trade-pet-chip">${escapeHtml(p.name)} <button data-session-remove="${escapeHtml(getOfferId(p))}">x</button></div>`).join("") || "Empty"}</div></div>
         <div class="trade-side"><div class="trade-title">THEM ${ready[otherUid] ? "✓" : ""}</div><div class="trade-offer-list">${theirOffer.map(p => `<div class="trade-pet-chip">${escapeHtml(p.name)}</div>`).join("") || "Empty"}</div></div>
       </div>
       <select class="name-input" id="sessionPetSelect">${pets.length ? pets.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} • ${escapeHtml(p.rarity)}</option>`).join("") : `<option value="">No pets</option>`}</select>
@@ -2182,39 +2387,77 @@ function renderActiveTradeSession() {
         <button class="recovery-btn ui-click" id="sessionReady">${ready[myUid] ? "UNREADY" : "READY"}</button>
         <button class="danger-btn ui-click" id="sessionDecline">DECLINE</button>
       </div>
+      <div class="trade-chat-box">
+        <div class="trade-title">TRADE CHAT</div>
+        <div class="trade-chat-messages" id="sessionChatMessages">${renderTradeChatMessages(session)}</div>
+        <div class="trade-chat-input-row">
+          <input type="text" class="name-input" id="sessionChatInput" placeholder="Message..." maxlength="120" />
+          <button class="recovery-btn ui-click" id="sessionChatSend">SEND</button>
+        </div>
+      </div>
     </div>
   `;
-  modal.querySelector("#sessionAddPet")?.addEventListener("click", () => addPetToSession(session));
-  modal.querySelector("#sessionReady")?.addEventListener("click", () => toggleSessionReady(session));
-  modal.querySelector("#sessionDecline")?.addEventListener("click", () => declineSession(session));
-  modal.querySelectorAll("[data-session-remove]").forEach(btn => btn.addEventListener("click", () => removePetFromSession(session, btn.dataset.sessionRemove)));
+  modal.querySelector("#sessionAddPet")?.addEventListener("click", (e) => { startButtonCooldown(e.currentTarget, 1200); addPetToSession(session); });
+  modal.querySelector("#sessionReady")?.addEventListener("click", (e) => { startButtonCooldown(e.currentTarget, 1200); toggleSessionReady(session); });
+  modal.querySelector("#sessionDecline")?.addEventListener("click", (e) => { startButtonCooldown(e.currentTarget, 1200); declineSession(session); });
+  modal.querySelector("#sessionChatSend")?.addEventListener("click", (e) => { startButtonCooldown(e.currentTarget, 1200); sendTradeChatMessage(session); });
+  modal.querySelector("#sessionChatInput")?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); sendTradeChatMessage(session); } });
+  modal.querySelectorAll("[data-session-remove]").forEach(btn => btn.addEventListener("click", (e) => { startButtonCooldown(e.currentTarget, 1200); removePetFromSession(session, btn.dataset.sessionRemove); }));
+  const msgsEl = modal.querySelector("#sessionChatMessages");
+  if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
   if (ready[myUid] && ready[otherUid] && !(session.completedFor && session.completedFor[myUid])) finalizeSessionForMe(session);
 }
 async function addPetToSession(session) {
+  if (!checkTradeCooldown(`session_add_${session.id}`, 1200)) return;
   const sel = document.getElementById("sessionPetSelect");
   const petId = sel?.value;
   if (!petId || !currentUser) return;
   const pet = getTradablePetsSafe().find(p => p.id === petId);
   if (!pet) return alert("Pet not found or locked");
   const myUid = currentUser.uid;
-  const offer = [...(session.offers?.[myUid] || []), pet].slice(0, 8);
-  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/offers/${myUid}`), offer);
-  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/ready/${myUid}`), false);
+  const currentOffer = session.offers?.[myUid] || [];
+  if (currentOffer.length >= 8) return alert("Max 8 pets per trade");
+
+  const removed = getPetApiSafe()?.removePetForTrade?.(petId);
+  if (!removed || !removed.ok) return alert(removed?.error || "Cannot reserve pet");
+  const reservedPet = { ...removed.pet, id: removed.pet.id || petId, offerId: petId, originalPetId: petId, reserved: true };
+  const offer = [...currentOffer, reservedPet];
+  try {
+    await saveCurrentUserDataToCloud();
+    await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/offers/${myUid}`), offer);
+    await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/ready/${myUid}`), false);
+  } catch (e) {
+    getPetApiSafe()?.addPetFromTrade?.(reservedPet);
+    try { await saveCurrentUserDataToCloud(); } catch (_) {}
+    alert("Add pet failed: " + e.message);
+  }
 }
 async function removePetFromSession(session, petId) {
+  if (!checkTradeCooldown(`session_remove_${session.id}`, 1200)) return;
   const myUid = currentUser.uid;
-  const offer = (session.offers?.[myUid] || []).filter(p => p.id !== petId);
-  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/offers/${myUid}`), offer);
-  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/ready/${myUid}`), false);
+  const currentOffer = session.offers?.[myUid] || [];
+  const pet = currentOffer.find(p => getOfferId(p) === String(petId));
+  const offer = currentOffer.filter(p => getOfferId(p) !== String(petId));
+  try {
+    await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/offers/${myUid}`), offer);
+    await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/ready/${myUid}`), false);
+    if (pet && pet.reserved) {
+      const ret = getPetApiSafe()?.addPetFromTrade?.(pet);
+      if (!ret || !ret.ok) alert(ret?.error || "Could not return pet locally");
+      await saveCurrentUserDataToCloud();
+    }
+  } catch (e) { alert("Remove pet failed: " + e.message); }
 }
 async function toggleSessionReady(session) {
+  if (!checkTradeCooldown(`session_ready_${session.id}`, 1200)) return;
   const myUid = currentUser.uid;
   const next = !(session.ready && session.ready[myUid]);
   await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/ready/${myUid}`), next);
 }
 async function declineSession(session) {
-  if (!confirm("Decline trade?")) return;
-  await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "cancelled", cancelledAt: Date.now() });
+  if (!checkTradeCooldown(`session_decline_${session.id}`, 1500)) return;
+  if (!confirm("Decline trade? Your reserved pets will be returned.")) return;
+  await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "cancelled", cancelledAt: Date.now(), cancelledBy: currentUser.uid });
   activeTradeSessionId = null;
   const modal = document.getElementById("tradeSessionModal");
   if (modal) modal.remove();
@@ -2226,25 +2469,55 @@ async function finalizeSessionForMe(session) {
   const otherUid = session.aUid === myUid ? session.bUid : session.aUid;
   const myOffer = session.offers?.[myUid] || [];
   const theirOffer = session.offers?.[otherUid] || [];
-  for (const pet of myOffer) {
-    const removed = getPetApiSafe()?.removePetForTrade?.(pet.id);
-    if (!removed || !removed.ok) {
-      alert("Trade failed: one of your pets is no longer available.");
-      await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "failed", failedAt: Date.now() });
-      finalizingTradeSessions.delete(session.id);
+  try {
+    const petApi = getPetApiSafe();
+    if (!petApi) return alert("Pet system is not ready");
+    if (typeof petApi.getFreeSlots === "function" && petApi.getFreeSlots() < theirOffer.length) {
+      alert("Trade failed: not enough free pet slots.");
+      await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "failed", failedAt: Date.now(), failedBy: myUid, reason: "no_slots" });
       return;
     }
+
+    // New trades reserve pets when adding them, so we do NOT remove them again here.
+    // Legacy sessions may contain unreserved offers; remove those once for compatibility.
+    for (const pet of myOffer) {
+      if (pet.reserved) continue;
+      const removed = petApi.removePetForTrade?.(pet.id);
+      if (!removed || !removed.ok) {
+        alert("Trade failed: one of your pets is no longer available.");
+        await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "failed", failedAt: Date.now(), failedBy: myUid });
+        return;
+      }
+    }
+
+    for (const pet of theirOffer) {
+      const added = petApi.addPetFromTrade?.(pet);
+      if (!added || !added.ok) {
+        alert(added?.error || "Could not receive one pet");
+        await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "failed", failedAt: Date.now(), failedBy: myUid });
+        return;
+      }
+    }
+
+    await saveCurrentUserDataToCloud();
+    await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/completedFor/${myUid}`), true);
+
+    try {
+      const freshSnap = await window.fb.get(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`));
+      const fresh = freshSnap.val() || {};
+      const completed = fresh.completedFor || { ...(session.completedFor || {}), [myUid]: true };
+      if (completed[otherUid]) {
+        await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "completed", completedAt: Date.now() });
+      }
+    } catch (e) { console.warn("Trade completion status update failed", e); }
+
+    showNotification("Trade completed!", "#4ade80", 2600);
+    activeTradeSessionId = null;
+    const modal = document.getElementById("tradeSessionModal");
+    if (modal) modal.remove();
+  } finally {
+    finalizingTradeSessions.delete(session.id);
   }
-  for (const pet of theirOffer) {
-    const added = getPetApiSafe()?.addPetFromTrade?.(pet);
-    if (!added || !added.ok) alert(added?.error || "Could not receive one pet");
-  }
-  saveGame();
-  await window.fb.set(window.fb.ref(window.fb.db, `tradeSessions/${session.id}/completedFor/${myUid}`), true);
-  const completed = { ...(session.completedFor || {}), [myUid]: true };
-  if (completed[otherUid]) await window.fb.update(window.fb.ref(window.fb.db, `tradeSessions/${session.id}`), { status: "completed", completedAt: Date.now() });
-  showNotification("Trade completed!", "#4ade80", 2600);
-  finalizingTradeSessions.delete(session.id);
 }
 if (plazaListBtn) plazaListBtn.addEventListener("click", listPetOnPlaza);
 document.addEventListener("click", (e) => {
@@ -2254,12 +2527,12 @@ document.addEventListener("click", (e) => {
   const reqPlayer = e.target.closest("[data-request-player]");
   const reqAccept = e.target.closest("[data-trade-request-accept]");
   const reqDecline = e.target.closest("[data-trade-request-decline]");
-  if (buy) buyPlazaListing(buy.dataset.plazaBuy);
-  if (cancel) cancelPlazaListing(cancel.dataset.plazaCancel);
-  if (claim) claimPlazaSale(claim.dataset.plazaClaim);
-  if (reqPlayer) sendPlayerTradeRequest(reqPlayer.dataset.requestPlayer);
-  if (reqAccept) acceptPlayerTradeRequest(reqAccept.dataset.tradeRequestAccept);
-  if (reqDecline) declinePlayerTradeRequest(reqDecline.dataset.tradeRequestDecline);
+  if (buy) { startButtonCooldown(buy, 1500); buyPlazaListing(buy.dataset.plazaBuy); }
+  if (cancel) { startButtonCooldown(cancel, 1500); cancelPlazaListing(cancel.dataset.plazaCancel); }
+  if (claim) { startButtonCooldown(claim, 1500); claimPlazaSale(claim.dataset.plazaClaim); }
+  if (reqPlayer) { startButtonCooldown(reqPlayer, 1500); sendPlayerTradeRequest(reqPlayer.dataset.requestPlayer); }
+  if (reqAccept) { startButtonCooldown(reqAccept, 1500); acceptPlayerTradeRequest(reqAccept.dataset.tradeRequestAccept); }
+  if (reqDecline) { startButtonCooldown(reqDecline, 1500); declinePlayerTradeRequest(reqDecline.dataset.tradeRequestDecline); }
 });
 
 /* ========== \u0422\u041E\u041F ========== */

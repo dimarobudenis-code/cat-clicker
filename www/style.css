@@ -2388,3 +2388,39 @@ body.atomic-active-shake {
   .top-entry { gap: 6px; padding: 8px; }
   .top-value { font-size: 7px !important; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* Trade chat + safer trade UI */
+.trade-chat-box {
+  margin-top: 10px;
+  background: rgba(15, 16, 32, 0.85);
+  border: 2px solid #3a3a5a;
+  padding: 8px;
+}
+.trade-chat-messages {
+  max-height: 150px;
+  overflow-y: auto;
+  background: #0f1020;
+  border: 1px solid #2a2a4a;
+  padding: 6px;
+  margin-bottom: 8px;
+}
+.trade-chat-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+.trade-session-modal button:disabled,
+.trade-menu button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.trade-pet-chip button {
+  margin-left: 6px;
+  border: 1px solid #ff6666;
+  background: #1a1a2e;
+  color: #ff6666;
+  font-family: inherit;
+  font-size: 8px;
+  cursor: pointer;
+}
