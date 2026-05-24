@@ -2424,3 +2424,162 @@ body.atomic-active-shake {
   font-size: 8px;
   cursor: pointer;
 }
+
+
+#buyStellOfflinePetCrystals {
+  grid-column: 1 / -1;
+  border-color: #c084fc;
+  color: #ff9dfb;
+  box-shadow: 0 0 14px rgba(192,132,252,.18);
+}
+#buyStellOfflinePetCrystals.owned,
+#buyStellOfflinePetCrystals:disabled {
+  opacity: .7;
+}
+
+/* Super comet event */
+.super-comet-timer {
+  position: fixed;
+  top: 30px;
+  left: calc(50% + 258px);
+  z-index: 11;
+  color: #ff9dfb;
+  font-family: 'Press Start 2P', system-ui, sans-serif;
+  font-size: 9px;
+  padding: 7px 10px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  min-width: 150px;
+  text-align: left;
+  text-shadow: 0 0 10px rgba(255, 77, 243, .85), 0 0 18px rgba(192,132,252,.45);
+  pointer-events: none;
+}
+.super-comet-timer.active {
+  color: #fff;
+  animation: superCometTimerPulse 0.85s ease-in-out infinite;
+}
+@keyframes superCometTimerPulse {
+  0%,100% { transform: scale(1); text-shadow: 0 0 12px #ff4df3, 0 0 22px rgba(255,77,243,.55); }
+  50% { transform: scale(1.07); text-shadow: 0 0 22px #fff, 0 0 42px rgba(255,77,243,.9); }
+}
+.falling-comet.diamond-comet {
+  filter: drop-shadow(0 0 12px #67e8f9) drop-shadow(0 0 24px #22d3ee) hue-rotate(150deg) saturate(1.9) brightness(1.25);
+}
+.falling-comet.super-event-comet {
+  filter: drop-shadow(0 0 12px #ff4df3) drop-shadow(0 0 28px #a855f7) brightness(1.25);
+}
+.falling-comet.super-mega-comet {
+  z-index: 9998;
+  filter: drop-shadow(0 0 22px #fff) drop-shadow(0 0 42px #ff4df3) drop-shadow(0 0 70px #a855f7) brightness(1.45) saturate(1.6);
+  animation: superMegaCometPulse .35s ease-in-out infinite alternate;
+}
+@keyframes superMegaCometPulse {
+  from { transform: scale(1) rotate(0deg); }
+  to { transform: scale(1.08) rotate(3deg); }
+}
+@media (max-width: 560px) {
+  .super-comet-timer {
+    top: 136px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 7px;
+    min-width: 140px;
+    text-align: center;
+  }
+}
+
+/* Shop overflow / giant endgame numbers fix */
+.shop-item {
+  min-width: 0;
+  overflow: hidden;
+}
+.shop-item > div:last-child {
+  min-width: 0;
+  max-width: 45%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.item-info {
+  min-width: 0;
+  overflow: hidden;
+}
+.item-name,
+.item-desc {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.item-price {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  justify-content: flex-end;
+  text-align: right;
+  line-height: 1.25;
+  font-size: clamp(6px, 1.8vw, 10px);
+}
+.item-price img {
+  flex: 0 0 auto;
+  width: 24px !important;
+  height: 24px !important;
+}
+.item-owned {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+@media (max-width: 560px) {
+  .shop-item {
+    gap: 8px;
+    padding: 10px 8px;
+  }
+  .shop-item > div:last-child {
+    max-width: 42%;
+  }
+  .item-price {
+    font-size: 6px !important;
+  }
+  .item-price img {
+    width: 18px !important;
+    height: 18px !important;
+  }
+}
+
+/* Wider shop price column + readable compact numbers */
+.shop-item {
+  overflow: visible !important;
+}
+.shop-item > div:last-child {
+  flex: 0 0 auto !important;
+  width: clamp(150px, 38%, 260px) !important;
+  max-width: none !important;
+  min-width: 150px !important;
+}
+.item-price {
+  white-space: nowrap !important;
+  overflow: visible !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  font-size: clamp(7px, 1.55vw, 10px) !important;
+  line-height: 1.15 !important;
+  gap: 5px !important;
+}
+.item-owned {
+  white-space: nowrap;
+  overflow: visible !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
+@media (max-width: 560px) {
+  .shop-item > div:last-child {
+    width: 46% !important;
+    min-width: 118px !important;
+  }
+  .item-price {
+    font-size: 6px !important;
+    gap: 3px !important;
+  }
+}

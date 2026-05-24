@@ -49,11 +49,11 @@
   }
 
   const PET_POOL = [
-    { key: "cat", name: "Cat", rarity: "Common", icon: "CatPet.png", weight: 40, sellPrice: 3 },
-    { key: "dog", name: "Dog", rarity: "Common", icon: "DogPet.png", weight: 40, sellPrice: 3 },
-    { key: "slime", name: "Slime", rarity: "Rare", icon: "SlimePet.png", weight: 12, sellPrice: 8 },
-    { key: "draco", name: "Draco", rarity: "Epic", icon: "DracoPet.PNG", weight: 6, sellPrice: 20 },
-    { key: "mooncat", name: "Moon Cat", rarity: "Legendary", icon: "MoonCatPet.png", weight: 2, sellPrice: 60 }
+    { key: "cat", name: "Cat", rarity: "Common", icon: "CatPet.png", weight: 40, sellPrice: 2 },
+    { key: "dog", name: "Dog", rarity: "Common", icon: "DogPet.png", weight: 40, sellPrice: 2 },
+    { key: "slime", name: "Slime", rarity: "Rare", icon: "SlimePet.png", weight: 12, sellPrice: 4 },
+    { key: "draco", name: "Draco", rarity: "Epic", icon: "DracoPet.png", weight: 6, sellPrice: 10 },
+    { key: "mooncat", name: "Moon Cat", rarity: "Legendary", icon: "MoonCatPet.png", weight: 2, sellPrice: 30 }
   ];
 
   const SPECIAL_PETS = [
@@ -91,7 +91,7 @@
     atomicClicks: 0,
     atomicActiveUntil: 0,
     atomicEggLuckCharges: 0,
-    ownedSkins: { kingcat: false },
+    ownedSkins: { kingcat: false, robocat: false },
     activeSkin: null
   };
 
@@ -101,7 +101,8 @@
 
   const CAT_SKINS = [
     { key: "default", name: "Default Cat", icon: "CatIcon1.png", desc: "Original cat", defaultOwned: true },
-    { key: "kingcat", name: "King Cat", icon: "KingCatIcon.png", desc: "Imperial owner skin", defaultOwned: false }
+    { key: "kingcat", name: "King Cat", icon: "KingCatIcon.png", desc: "Imperial owner skin", defaultOwned: false },
+    { key: "robocat", name: "Robo Cat", icon: "RoboCat.png", desc: "Unlocked at 1M total clicks", defaultOwned: false, requiredClicks: 1000000 }
   ];
   /* ==========================================================
      \u041F\u0423\u0411\u041B\u0418\u0427\u041D\u042B\u0419 API — window.petSystemApi
@@ -124,8 +125,9 @@
           .reduce((sum, p) => sum + (getPetStatsMeta(p).luckMult || 0), 0);
       },
       getPassiveCrystalsPerMinute() {
+        // Amethyst passive income is a collection bonus: every owned pet contributes.
+        // Equip is still required for fish/auto/luck boosts.
         return state.inventory
-          .filter(p => p.equipped || p.vipOnly || p.imperialOnly)
           .reduce((sum, p) => sum + (getPetStatsMeta(p).crystalsPerMin || 0), 0);
       },
       getPassiveStellPerMinute() {
@@ -1615,7 +1617,7 @@
     state.atomicClicks = raw && raw.atomicClicks || 0;
     state.atomicActiveUntil = raw && raw.atomicActiveUntil || 0;
     state.atomicEggLuckCharges = raw && raw.atomicEggLuckCharges || 0;
-    state.ownedSkins = { kingcat: false, ...(raw && raw.ownedSkins || {}) };
+    state.ownedSkins = { kingcat: false, robocat: false, ...(raw && raw.ownedSkins || {}) };
     state.activeSkin = raw && raw.activeSkin || null;
     applyActiveSkin();
   }
@@ -1741,8 +1743,22 @@
     });
   }
 
+  function getTotalClicksForSkins() {
+    try { return Number(window.gameState?.stats?.totalClicks || 0) || 0; }
+    catch (e) { return 0; }
+  }
+  function isSkinUnlockedByRequirement(skin) {
+    if (!skin || !skin.requiredClicks) return false;
+    return getTotalClicksForSkins() >= skin.requiredClicks;
+  }
+  function getSkinProgressText(skin) {
+    if (!skin || !skin.requiredClicks || isSkinOwned(skin)) return "";
+    const clicks = getTotalClicksForSkins();
+    const left = Math.max(0, skin.requiredClicks - clicks);
+    return ` • ${formatNum(clicks)} / ${formatNum(skin.requiredClicks)} clicks (${formatNum(left)} left)`;
+  }
   function isSkinOwned(skin) {
-    return !!skin.defaultOwned || !!state.ownedSkins[skin.key];
+    return !!skin.defaultOwned || !!state.ownedSkins[skin.key] || isSkinUnlockedByRequirement(skin);
   }
   function getActiveSkinDef() {
     return CAT_SKINS.find(s => s.key === state.activeSkin && isSkinOwned(s)) || CAT_SKINS[0];
@@ -1750,7 +1766,13 @@
   function applyActiveSkin() {
     try {
       const img = document.querySelector("#catBtn img");
-      if (img) img.src = getActiveSkinDef().icon;
+      if (img) {
+        const skin = getActiveSkinDef();
+        img.onerror = () => {
+          if (skin.key !== "default") img.src = CAT_SKINS[0].icon;
+        };
+        img.src = skin.icon;
+      }
     } catch (e) {}
   }
   function grantSkin(skinKey) {
@@ -1780,7 +1802,7 @@
         <div class="pet-skin-card ${owned ? "" : "locked"} ${active ? "active" : ""}">
           <img src="${skin.icon}" alt="${skin.name}" />
           <div class="pet-skin-name">${skin.name}</div>
-          <div class="pet-skin-desc">${skin.desc}${owned ? "" : " • Locked"}</div>
+          <div class="pet-skin-desc">${skin.desc}${owned ? "" : " • Locked"}${getSkinProgressText(skin)}</div>
           <button class="pet-action-btn ui-click" data-equip-skin="${skin.key}" ${owned ? "" : "disabled"}>${active ? "EQUIPPED" : "EQUIP"}</button>
         </div>
       `;
@@ -1805,7 +1827,8 @@
         slot.className = `pet-slot ${pet.equipped ? "equipped" : ""} ${pet.locked ? "locked" : ""} ${pet.rarity === "Imperial" ? "imperial-pet-slot" : ""} ${state.selectedPetId === pet.id ? "selected" : ""}`.trim();
         slot.dataset.petId = pet.id;
         slot.title = `${pet.name} • ${pet.rarity}`;
-        slot.innerHTML = `<img src="${pet.icon}" alt="${pet.name}" />`;
+        const fallbackIcon = pet.key === "draco" ? "DracoPet.PNG" : "CatPet.png";
+        slot.innerHTML = `<img src="${pet.icon}" alt="${pet.name}" onerror="this.onerror=null;this.src='${fallbackIcon}'" />`;
       }
       refs.inventoryGrid.appendChild(slot);
     }
@@ -1834,7 +1857,7 @@
       <div class="pet-detail-card">
         <div class="pet-panel-title">PET DETAILS</div>
         <div class="pet-detail-top">
-          <img src="${pet.icon}" alt="${pet.name}" />
+          <img src="${pet.icon}" alt="${pet.name}" onerror="this.onerror=null;this.src='${pet.key === "draco" ? "DracoPet.PNG" : "CatPet.png"}'" />
           <div class="pet-detail-meta">
             <div class="pet-detail-name">${escapeHtml(pet.name)}</div>
             <div class="pet-rarity-badge" style="color:${rarity.color}">${rarity.badge}</div>
@@ -2427,7 +2450,7 @@
       const rarity = RARITY_META[pet.rarity] || RARITY_META.Common;
       return `
         <div class="pet-bulk-card" style="border-color:${rarity.color};box-shadow:0 0 12px ${rarity.color}33;">
-          <img src="${pet.icon}" alt="${pet.name}" />
+          <img src="${pet.icon}" alt="${pet.name}" onerror="this.onerror=null;this.src='${pet.key === "draco" ? "DracoPet.PNG" : "CatPet.png"}'" />
           <div class="pet-bulk-name">${escapeHtml(pet.name)}</div>
           <div class="pet-bulk-rarity" style="color:${rarity.color};">${rarity.badge}${pet.autoSold ? ` • SOLD +${formatNum(pet.autoSoldAmount || 0)}` : ""}</div>
         </div>

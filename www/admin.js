@@ -421,6 +421,14 @@ function initAdmin() {
     if (F.forceStartCometEvent) F.forceStartCometEvent();
     alert("✓ Comet event started globally");
   });
+  const adminSuperCometStartAll = document.getElementById("adminSuperCometStartAll");
+  if (adminSuperCometStartAll) adminSuperCometStartAll.addEventListener("click", async () => {
+    const startAt = Date.now() - 60 * 60 * 1000;
+    await writeCometConfig({ enabled: true, superCycleStartedAt: startAt });
+    if (F.forceStartSuperCometEvent) F.forceStartSuperCometEvent();
+    announceAdminAbuse("Admin started SUPER Comet Event for all players!");
+    alert("✓ SUPER comet event started globally");
+  });
 
   const adminGivePetSelf = document.getElementById("adminGivePetSelf");
   const adminPetType = document.getElementById("adminPetType");
@@ -718,10 +726,13 @@ function initAdmin() {
     adminRewardAllComet.addEventListener("click", async () => {
       if (!F.checkAdmin() || !window.fb) return;
       if (!confirm("Start COMET EVENT for ALL players?")) return;
+      const startAt = Date.now() - 10 * 60 * 1000;
+      await writeCometConfig({ enabled: true, cycleStartedAt: startAt });
+      // Command fallback for players with an old build; cometConfig is the real global sync.
       await sendCommandToAll({ type: "cometevent", delayMs: 900 });
       if (F.forceStartCometEvent) F.forceStartCometEvent();
       announceAdminAbuse("Admin started Comet Event for all players!");
-      alert("✓ Comet event sent to all players!");
+      alert("✓ Global comet event started! Old clients also received command fallback.");
     });
   }
 

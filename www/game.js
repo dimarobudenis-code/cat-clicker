@@ -361,6 +361,10 @@ drawParticles();
 
 /* ========== \u0424\u041E\u0420 \u041C\u0410\u0422\u0418\u0420 \u041E\u0412\u0410\u041D\u0418\u0415 ========== */
 const NUM_SUFFIXES = [
+  { v: 1e150, s: "Nqg" }, { v: 1e147, s: "Oqg" }, { v: 1e144, s: "Spqg" }, { v: 1e141, s: "Sxqg" }, { v: 1e138, s: "Qiqg" },
+  { v: 1e135, s: "Qaqg" }, { v: 1e132, s: "Tqg" }, { v: 1e129, s: "Dqg" }, { v: 1e126, s: "Uqg" }, { v: 1e123, s: "Qg" },
+  { v: 1e120, s: "Ntg" }, { v: 1e117, s: "Otg" }, { v: 1e114, s: "Sptg" }, { v: 1e111, s: "Sxtg" }, { v: 1e108, s: "Qitg" },
+  { v: 1e105, s: "Qatg" }, { v: 1e102, s: "Ttg" }, { v: 1e99, s: "Dtg" }, { v: 1e96, s: "Utg" }, { v: 1e93, s: "Tg" },
   { v: 1e90, s: "Nv" }, { v: 1e87, s: "Ov" }, { v: 1e84, s: "Spv" }, { v: 1e81, s: "Sxv" }, { v: 1e78, s: "Qiv" },
   { v: 1e75, s: "Qav" }, { v: 1e72, s: "Tv" }, { v: 1e69, s: "Dv" }, { v: 1e66, s: "Uv" }, { v: 1e63, s: "Vg" },
   { v: 1e60, s: "Nod" }, { v: 1e57, s: "Ocd" }, { v: 1e54, s: "Spd" }, { v: 1e51, s: "Sxd" }, { v: 1e48, s: "Qid" },
@@ -413,6 +417,33 @@ function formatDuration(ms) {
   const m = Math.floor(ms / 60000);
   const s = Math.floor((ms % 60000) / 1000);
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function normalizeBalances() {
+  score = Math.max(0, Number(score) || 0);
+  crystals = Math.max(0, Number(crystals) || 0);
+  stell = Math.max(0, Number(stell) || 0);
+}
+function spendFish(amount, message = "Not enough fish") {
+  amount = Math.max(0, Number(amount) || 0);
+  normalizeBalances();
+  if (score < amount) { showNotification(message, "#ff6666", 1800); return false; }
+  score = Math.max(0, score - amount);
+  return true;
+}
+function spendCrystals(amount, message = "Not enough amethysts") {
+  amount = Math.max(0, Number(amount) || 0);
+  normalizeBalances();
+  if (crystals < amount) { showNotification(message, "#ff6666", 1800); return false; }
+  crystals = Math.max(0, crystals - amount);
+  return true;
+}
+function spendStell(amount, message = "Not enough Stell") {
+  amount = Math.max(0, Number(amount) || 0);
+  normalizeBalances();
+  if (stell < amount) { showNotification(message, "#ff66ff", 1800); return false; }
+  stell = Math.max(0, stell - amount);
+  return true;
 }
 function makePlayerId() {
   try {
@@ -468,9 +499,10 @@ let rebirthMultiplier = 1;
 let potions = { luck: 0, speed: 0, fish: 0 };
 let vipActive = false;
 let imperialActive = false;
+let stellOfflinePetCrystalsUnlocked = false;
 let currentShopTab = "click";
 let lastClickTime = 0;
-const CLICK_DELAY = 50;
+const CLICK_DELAY = 90;
 const SAVE_KEY = "catclicker_save";
 const OFFLINE_MIN_SECONDS = 30;
 const OFFLINE_MAX_SECONDS = 8 * 3600;
@@ -491,22 +523,31 @@ let cachedChatMessages = [];
 const COMET_COOLDOWN_MS = 10 * 60 * 1000;
 const COMET_EVENT_MS = 5 * 60 * 1000;
 const COMET_CYCLE_MS = COMET_COOLDOWN_MS + COMET_EVENT_MS;
+const SUPER_COMET_COOLDOWN_MS = 60 * 60 * 1000;
+const SUPER_COMET_EVENT_MS = 5 * 60 * 1000;
+const SUPER_COMET_CYCLE_MS = SUPER_COMET_COOLDOWN_MS + SUPER_COMET_EVENT_MS;
 let cometCycleStartedAt = Date.now();
+let superCometCycleStartedAt = Date.now();
 let cometEventActive = false;
+let superCometEventActive = false;
 let cometSystemEnabled = true;
 let cometConfigListening = false;
 let cometSpawnTimer = null;
+let superCometSpawnTimer = null;
 let activeComets = 0;
 const MAX_ACTIVE_COMETS = 1;
+const MAX_ACTIVE_SUPER_COMETS = 3;
 
 const scoreText = $("scoreText");
 const crystalText = $("crystalText");
 const stellText = $("stellText");
 const cometTimer = $("cometTimer");
+const superCometTimer = $("superCometTimer");
 const cometEventBtn = $("cometEventBtn");
 const buyStellEgg1Btn = $("buyStellEgg1");
 const buyStellEgg10Btn = $("buyStellEgg10");
 const buyStellEgg100Btn = $("buyStellEgg100");
+const buyStellOfflinePetCrystalsBtn = $("buyStellOfflinePetCrystals");
 const scoreBar = $("scoreBar");
 const catBtn = $("catBtn");
 const waveGlow = $("waveGlow");
@@ -561,10 +602,20 @@ function getLuckPotionMult() {
   return Date.now() < potions.luck ? 2 : 1;
 }
 function getPetLuckMult() {
-  return (getPetApi()?.getLuckMultiplier?.() || 1) * getLuckPotionMult();
+  const api = getPetApi();
+  let mult = (api?.getLuckMultiplier?.() || 1) * getLuckPotionMult();
+  try {
+    if (imperialActive && !(api && typeof api.hasImperialPet === "function" && api.hasImperialPet())) mult *= 10;
+  } catch (e) {}
+  return mult;
 }
 function getPetPassiveCrystalsPerMinute() {
-  return getPetApi()?.getPassiveCrystalsPerMinute?.() || 0;
+  const api = getPetApi();
+  let amount = api?.getPassiveCrystalsPerMinute?.() || 0;
+  try {
+    if (imperialActive && !(api && typeof api.hasImperialPet === "function" && api.hasImperialPet())) amount += 50;
+  } catch (e) {}
+  return amount;
 }
 function getPetPassiveStellPerMinute() {
   return getPetApi()?.getPassiveStellPerMinute?.() || 0;
@@ -579,9 +630,14 @@ function getVipFishMult() {
   return vipActive ? 10 : 1;
 }
 function getImperialFishMult() {
-  // Imperial fish boost comes from the Imperial Cat pet itself.
-  // Keep subscription multiplier at x1 to avoid accidental x10000 stacking.
-  return 1;
+  if (!imperialActive) return 1;
+  // Main Imperial boost normally comes from Imperial Cat pet.
+  // Fallback keeps paid/granted Imperial working if Pet.js was not ready or pet was missing.
+  try {
+    const api = getPetApi();
+    if (api && typeof api.hasImperialPet === "function" && api.hasImperialPet()) return 1;
+  } catch (e) {}
+  return 100;
 }
 function grantVipPetIfPossible() {
   try {
@@ -636,11 +692,7 @@ const VIP_PRICE = 1000;
 const IMPERIAL_PRICE = 1000000;
 function buyVipMembership() {
   if (vipActive) return;
-  if (crystals < VIP_PRICE) {
-    showNotification("Need 1000 amethysts for VIP!", "#ff6666", 2500);
-    return;
-  }
-  crystals -= VIP_PRICE;
+  if (!spendCrystals(VIP_PRICE, "Need 1000 amethysts for VIP!")) return;
   vipActive = true;
   grantVipPetIfPossible();
   playRewardSound();
@@ -653,11 +705,7 @@ function buyVipMembership() {
 
 function buyImperialMembership() {
   if (imperialActive) return;
-  if (crystals < IMPERIAL_PRICE) {
-    showNotification("Need 1M amethysts for Imperial!", "#ff4444", 2500);
-    return;
-  }
-  crystals -= IMPERIAL_PRICE;
+  if (!spendCrystals(IMPERIAL_PRICE, "Need 1M amethysts for Imperial!")) return;
   imperialActive = true;
   grantImperialPetIfPossible();
   playRewardSound();
@@ -719,7 +767,8 @@ function renderPotionShop() {
     `;
     if (canBuy) {
       div.addEventListener("click", () => {
-        crystals -= potion.price;
+        if (Date.now() < (potions[potion.type] || 0)) return;
+        if (!spendCrystals(potion.price, `Need ${formatNum(potion.price)} amethysts for ${potion.name}!`)) { renderPotionShop(); return; }
         potions[potion.type] = Date.now() + potion.duration;
         playBuySound();
         updateScore();
@@ -796,6 +845,33 @@ function getOfflineMultiplier(data, now = Date.now()) {
 function saveHasAtomicPet(data) {
   return Array.isArray(data?.petSystem?.inventory) && data.petSystem.inventory.some(p => p && p.key === "atomicsupercat");
 }
+function getSavePetCrystalPerMin(pet) {
+  if (!pet || typeof pet !== "object") return 0;
+  const custom = {
+    stellcometfox: 1,
+    stellmoonbunny: 1,
+    stellnebulacat: 8,
+    stelldrac: 15,
+    stellphoenix: 20,
+    stellangeldemon: 60,
+    atomicsupercat: 500,
+    goldpegasus: 5,
+    imperialcat: 50
+  };
+  if (custom[pet.key]) return custom[pet.key];
+  const rarity = {
+    Epic: 2,
+    Legendary: 5,
+    VIP: 5,
+    Imperial: 50,
+    Atomic: 500
+  };
+  return rarity[pet.rarity] || 0;
+}
+function getSaveAllPetsCrystalsPerMinute(data) {
+  const inv = Array.isArray(data?.petSystem?.inventory) ? data.petSystem.inventory : [];
+  return inv.reduce((sum, pet) => sum + getSavePetCrystalPerMin(pet), 0);
+}
 function getOfflineRewardData(data, now = Date.now()) {
   if (!data || !data.lastOnline) return { diffSec: 0, offlineSec: 0, earned: 0, crystals: 0, stell: 0 };
   const diffSec = Math.floor((now - data.lastOnline) / 1000);
@@ -804,7 +880,10 @@ function getOfflineRewardData(data, now = Date.now()) {
   const earned = Math.floor((data.autoClicker || 0) * offlineSec * getOfflineMultiplier(data, now) * OFFLINE_EFFICIENCY);
   const hasAtomic = saveHasAtomicPet(data);
   const offlineMinutes = Math.floor(offlineSec / 60);
-  const offlineCrystals = hasAtomic ? offlineMinutes * 500 : 0;
+  const allPetCrystalsPerMinute = data.stellOfflinePetCrystalsUnlocked ? getSaveAllPetsCrystalsPerMinute(data) : 0;
+  const offlineCrystals = data.stellOfflinePetCrystalsUnlocked
+    ? offlineMinutes * allPetCrystalsPerMinute
+    : (hasAtomic ? offlineMinutes * 500 : 0);
   const offlineStell = hasAtomic ? offlineMinutes * 100 : 0;
   return { diffSec, offlineSec, earned, crystals: offlineCrystals, stell: offlineStell };
 }
@@ -815,7 +894,7 @@ function processOfflineProgress(data) {
   if (reward.crystals > 0) crystals += reward.crystals;
   if (reward.stell > 0) stell += reward.stell;
   openOfflinePopup(reward.offlineSec, pendingOfflineFish);
-  if (reward.crystals > 0 || reward.stell > 0) showNotification(`Offline Atomic: +${formatNum(reward.crystals)} amethysts, +${formatNum(reward.stell)} Stell`, "#00ffaa", 3500);
+  if (reward.crystals > 0 || reward.stell > 0) showNotification(`Offline pets: +${formatNum(reward.crystals)} amethysts, +${formatNum(reward.stell)} Stell`, "#00ffaa", 3500);
   updateScore();
   return true;
 }
@@ -847,10 +926,10 @@ function mergeSaveDataPreferMax(localData, cloudData) {
 function buildSaveData(lastOnlineOverride = Date.now()) {
   return {
     score, crystals, stell, clickPower, autoClicker, goldClicks, diamondClicks,
-    rebirthCount, rebirthMultiplier, potions, vipActive, imperialActive,
+    rebirthCount, rebirthMultiplier, potions, vipActive, imperialActive, stellOfflinePetCrystalsUnlocked,
     shopOwned: shopItemsData.map(i => i.owned),
     petSystem: window.petSystemApi?.getSaveData?.() || undefined,
-    stats, profile, playerId, settings, usedPromoCodes, localAdminGranted, cometCycleStartedAt, cometSystemEnabled,
+    stats, profile, playerId, settings, usedPromoCodes, localAdminGranted, cometCycleStartedAt, superCometCycleStartedAt, cometSystemEnabled,
     lastOnline: lastOnlineOverride
   };
 }
@@ -886,6 +965,7 @@ function applySaveData(data) {
   if (data.potions) potions = data.potions;
   vipActive = !!data.vipActive;
   imperialActive = !!data.imperialActive;
+  stellOfflinePetCrystalsUnlocked = !!data.stellOfflinePetCrystalsUnlocked;
   if (data.shopOwned) {
     data.shopOwned.forEach((count, i) => {
       if (shopItemsData[i]) shopItemsData[i].owned = count;
@@ -900,6 +980,7 @@ function applySaveData(data) {
   if (data.usedPromoCodes) usedPromoCodes = data.usedPromoCodes;
   localAdminGranted = !!data.localAdminGranted;
   if (data.cometCycleStartedAt) cometCycleStartedAt = data.cometCycleStartedAt;
+  if (data.superCometCycleStartedAt) superCometCycleStartedAt = data.superCometCycleStartedAt;
   if (data.cometSystemEnabled !== undefined) cometSystemEnabled = data.cometSystemEnabled !== false;
   soundEnabled = settings.soundEnabled !== false;
   updateScore();
@@ -1025,12 +1106,22 @@ if (catBtn) {
   catBtn.addEventListener("mousedown", (e) => e.preventDefault());
 }
 function updateScore() {
+  normalizeBalances();
   if (scoreText) scoreText.textContent = formatNum(score);
   if (crystalText) crystalText.textContent = formatNum(crystals);
   if (stellText) stellText.textContent = formatNum(stell);
   updateIncome();
   updatePotionStatusBar();
-  renderShop();
+  renderStellOfflineUpgrade();
+  // Heavy DOM render on every click was freezing the game during fast clicking.
+  // Shop is rendered on open and then throttled only while it is visible.
+  if (shopMenu && shopMenu.classList.contains("active")) {
+    const now = Date.now();
+    if (now - lastShopRenderAt > 250) {
+      lastShopRenderAt = now;
+      renderShop();
+    }
+  }
 }
 
 /* ========== COMET EVENT ========== */
@@ -1043,6 +1134,15 @@ function getCometPhase(now = Date.now()) {
   }
   return { active: true, remaining: COMET_CYCLE_MS - elapsed, elapsed };
 }
+function getSuperCometPhase(now = Date.now()) {
+  if (!superCometCycleStartedAt) superCometCycleStartedAt = now;
+  let elapsed = (now - superCometCycleStartedAt) % SUPER_COMET_CYCLE_MS;
+  if (elapsed < 0) elapsed += SUPER_COMET_CYCLE_MS;
+  if (elapsed < SUPER_COMET_COOLDOWN_MS) {
+    return { active: false, remaining: SUPER_COMET_COOLDOWN_MS - elapsed, elapsed };
+  }
+  return { active: true, remaining: SUPER_COMET_CYCLE_MS - elapsed, elapsed };
+}
 function formatCometTimer(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(total / 60);
@@ -1052,22 +1152,36 @@ function formatCometTimer(ms) {
 function updateCometEvent() {
   if (!cometSystemEnabled) {
     if (cometTimer) cometTimer.style.display = "none";
+    if (superCometTimer) superCometTimer.style.display = "none";
     if (cometEventBtn) cometEventBtn.style.display = "none";
     if (cometEventActive) { cometEventActive = false; stopCometEventEffects(); updateLobbyMusic(); }
+    if (superCometEventActive) { superCometEventActive = false; stopSuperCometEventEffects(); }
     return;
   }
   if (cometTimer) cometTimer.style.display = "";
+  if (superCometTimer) superCometTimer.style.display = "";
   if (cometEventBtn) cometEventBtn.style.display = "";
   const phase = getCometPhase();
+  const superPhase = getSuperCometPhase();
   if (cometTimer) {
     cometTimer.textContent = phase.active ? `☄ EVENT ${formatCometTimer(phase.remaining)}` : `☄ ${formatCometTimer(phase.remaining)}`;
     cometTimer.classList.toggle("active", phase.active);
   }
-  if (cometEventBtn) cometEventBtn.classList.toggle("active", phase.active);
+  if (superCometTimer) {
+    superCometTimer.textContent = superPhase.active ? `☄ SUPER ${formatCometTimer(superPhase.remaining)}` : `☄ SUPER ${formatCometTimer(superPhase.remaining)}`;
+    superCometTimer.classList.toggle("active", superPhase.active);
+  }
+  if (cometEventBtn) cometEventBtn.classList.toggle("active", phase.active || superPhase.active);
   if (phase.active !== cometEventActive) {
     cometEventActive = phase.active;
     if (phase.active) startCometEventEffects();
     else stopCometEventEffects();
+    updateLobbyMusic();
+  }
+  if (superPhase.active !== superCometEventActive) {
+    superCometEventActive = superPhase.active;
+    if (superPhase.active) startSuperCometEventEffects();
+    else stopSuperCometEventEffects();
     updateLobbyMusic();
   }
 }
@@ -1083,8 +1197,29 @@ function startCometEventEffects() {
 function stopCometEventEffects() {
   if (cometSpawnTimer) { clearInterval(cometSpawnTimer); cometSpawnTimer = null; }
   showNotification("☄ Comet event ended!", "#c084fc", 2500);
-  if (cometMusic) cometMusic.pause();
-  if (settings.musicEnabled !== false) playLobbyMusic();
+  if (!superCometEventActive) {
+    if (cometMusic) cometMusic.pause();
+    if (settings.musicEnabled !== false) playLobbyMusic();
+  }
+}
+function startSuperCometEventEffects() {
+  showNotification("☄ SUPER COMET EVENT!\nAll comets x10 Stell • mega comets can drop 10K-50K!", "#ff4df3", 4500);
+  if (settings.musicEnabled !== false) playCometMusic();
+  if (superCometSpawnTimer) clearInterval(superCometSpawnTimer);
+  superCometSpawnTimer = setInterval(() => {
+    if (!superCometEventActive) return;
+    // 1% chance every second to spawn a huge fast comet.
+    if (Math.random() < 0.01) spawnFallingComet({ superMega: true });
+  }, 1000);
+  setTimeout(() => spawnFallingComet({ super: true }), 500);
+}
+function stopSuperCometEventEffects() {
+  if (superCometSpawnTimer) { clearInterval(superCometSpawnTimer); superCometSpawnTimer = null; }
+  showNotification("☄ Super comet event ended!", "#ff9dfb", 2500);
+  if (!cometEventActive) {
+    if (cometMusic) cometMusic.pause();
+    if (settings.musicEnabled !== false) playLobbyMusic();
+  }
 }
 function forceStartCometEvent() {
   cometSystemEnabled = true;
@@ -1092,10 +1227,17 @@ function forceStartCometEvent() {
   saveGame();
   updateCometEvent();
 }
+function forceStartSuperCometEvent() {
+  cometSystemEnabled = true;
+  superCometCycleStartedAt = Date.now() - SUPER_COMET_COOLDOWN_MS;
+  saveGame();
+  updateCometEvent();
+}
 function setCometSystemEnabled(enabled) {
   cometSystemEnabled = enabled !== false;
   if (!cometSystemEnabled) {
     if (cometSpawnTimer) { clearInterval(cometSpawnTimer); cometSpawnTimer = null; }
+    if (superCometSpawnTimer) { clearInterval(superCometSpawnTimer); superCometSpawnTimer = null; }
     document.querySelectorAll(".falling-comet").forEach(c => c.remove());
     activeComets = 0;
   }
@@ -1104,6 +1246,7 @@ function setCometSystemEnabled(enabled) {
 }
 function resetCometTimer() {
   cometCycleStartedAt = Date.now();
+  superCometCycleStartedAt = Date.now();
   saveGame();
   updateCometEvent();
 }
@@ -1115,6 +1258,7 @@ function listenCometConfig() {
       const cfg = snap.val() || {};
       if (cfg.enabled !== undefined) cometSystemEnabled = cfg.enabled !== false;
       if (cfg.cycleStartedAt) cometCycleStartedAt = cfg.cycleStartedAt;
+      if (cfg.superCycleStartedAt) superCometCycleStartedAt = cfg.superCycleStartedAt;
       updateCometEvent();
     });
   } catch (e) { cometConfigListening = false; console.warn("Comet config listen failed", e); }
@@ -1134,22 +1278,37 @@ function setCometImageWithFallback(img) {
   };
   img.src = sources[0];
 }
-function spawnFallingComet() {
-  if (!cometEventActive || activeComets >= MAX_ACTIVE_COMETS) return;
+function spawnFallingComet(options = {}) {
+  const isSuperMega = !!options.superMega;
+  const eventActive = cometEventActive || superCometEventActive || isSuperMega || options.super;
+  const maxComets = (superCometEventActive || isSuperMega) ? MAX_ACTIVE_SUPER_COMETS : MAX_ACTIVE_COMETS;
+  if (!eventActive || activeComets >= maxComets) return;
   activeComets++;
   const comet = document.createElement("img");
   setCometImageWithFallback(comet);
-  const isFast = Math.random() < 0.25;
-  comet.className = "falling-comet" + (isFast ? " fast-comet" : "");
-  comet.dataset.rewardMult = isFast ? "2" : "1";
-  const size = isFast ? (34 + Math.random() * 44) : (42 + Math.random() * 92);
-  const startX = Math.random() * (window.innerWidth - size);
-  const endX = startX + (Math.random() - 0.5) * (isFast ? 380 : 220);
+
+  const isDiamond = !isSuperMega && Math.random() < 0.10; // 10x rarer than normal comets
+  const isFast = isSuperMega ? true : Math.random() < 0.25;
+  comet.className = "falling-comet" + (isFast ? " fast-comet" : "") + (isDiamond ? " diamond-comet" : "") + (isSuperMega ? " super-mega-comet" : "") + (superCometEventActive && !isSuperMega ? " super-event-comet" : "");
+
+  let rewardMult = isFast ? 2 : 1;
+  if (isDiamond) rewardMult *= 10;
+  if (superCometEventActive || options.super) rewardMult *= 10;
+  comet.dataset.rewardMult = String(rewardMult);
+  if (isDiamond) comet.dataset.diamond = "1";
+  if (isSuperMega) {
+    comet.dataset.superMega = "1";
+    comet.dataset.rewardFixed = String(10000 + Math.floor(Math.random() * 40001));
+  }
+
+  const size = isSuperMega ? (130 + Math.random() * 120) : (isFast ? (34 + Math.random() * 44) : (42 + Math.random() * 92));
+  const startX = Math.random() * Math.max(1, (window.innerWidth - size));
+  const endX = startX + (Math.random() - 0.5) * (isSuperMega ? 620 : (isFast ? 380 : 220));
   const startY = -size - 30;
   const endY = window.innerHeight + size + 40;
-  const duration = isFast ? (1800 + Math.random() * 1400) : (5200 + Math.random() * 4200);
+  const duration = isSuperMega ? (950 + Math.random() * 1300) : (isFast ? (1800 + Math.random() * 1400) : (5200 + Math.random() * 4200));
   comet.style.setProperty("--size", `${size}px`);
-  comet.style.setProperty("--spin", `${isFast ? 1.8 + Math.random() * 1.8 : 5 + Math.random() * 8}s`);
+  comet.style.setProperty("--spin", `${isFast ? 1.2 + Math.random() * 1.6 : 5 + Math.random() * 8}s`);
   comet.style.left = startX + "px";
   comet.style.top = startY + "px";
   document.body.appendChild(comet);
@@ -1172,9 +1331,9 @@ function spawnFallingComet() {
     else { comet.remove(); activeComets = Math.max(0, activeComets - 1); }
   }
   requestAnimationFrame(anim);
-  if (getPetApi()?.hasAtomicPet?.()) {
+  if (!isSuperMega && getPetApi()?.hasAtomicPet?.()) {
     setTimeout(() => {
-      if (!collected && comet.parentNode && cometEventActive) {
+      if (!collected && comet.parentNode && (cometEventActive || superCometEventActive)) {
         collected = true;
         collectComet(comet);
       }
@@ -1188,11 +1347,13 @@ function collectComet(comet) {
   comet.remove();
   activeComets = Math.max(0, activeComets - 1);
   const mult = Number(comet.dataset.rewardMult || 1) || 1;
-  const gained = (1 + Math.floor(Math.random() * 10)) * mult;
+  const fixedReward = Number(comet.dataset.rewardFixed || 0) || 0;
+  const gained = fixedReward > 0 ? fixedReward : ((1 + Math.floor(Math.random() * 10)) * mult);
   stell += gained;
   updateScore();
   saveGame();
-  showNotification(`+${gained} Stell`, "#ff9dfb", 1200);
+  const label = comet.dataset.superMega === "1" ? "SUPER MEGA COMET" : (comet.dataset.diamond === "1" ? "DIAMOND COMET" : "Stell");
+  showNotification(`+${formatNum(gained)} ${label}`, comet.dataset.diamond === "1" ? "#67e8f9" : "#ff9dfb", fixedReward > 0 ? 2200 : 1200);
   shakeCometScreen();
   spawnCometExplosion(x, y);
   playRewardSound();
@@ -1222,6 +1383,27 @@ function spawnCometExplosion(x, y) {
 }
 setInterval(updateCometEvent, 1000);
 
+const STELL_OFFLINE_PET_CRYSTALS_COST = 100000;
+function renderStellOfflineUpgrade() {
+  if (!buyStellOfflinePetCrystalsBtn) return;
+  buyStellOfflinePetCrystalsBtn.textContent = stellOfflinePetCrystalsUnlocked
+    ? "OFFLINE PET AMETHYSTS: ON"
+    : `OFFLINE PET AMETHYSTS • ${formatNum(STELL_OFFLINE_PET_CRYSTALS_COST)} STELL`;
+  buyStellOfflinePetCrystalsBtn.disabled = !!stellOfflinePetCrystalsUnlocked || stell < STELL_OFFLINE_PET_CRYSTALS_COST;
+  buyStellOfflinePetCrystalsBtn.classList.toggle("owned", !!stellOfflinePetCrystalsUnlocked);
+}
+function buyStellOfflinePetCrystalsUpgrade() {
+  if (stellOfflinePetCrystalsUnlocked) {
+    showNotification("Offline pet amethysts already unlocked!", "#4ade80", 1800);
+    return;
+  }
+  if (!spendStell(STELL_OFFLINE_PET_CRYSTALS_COST, `Need ${formatNum(STELL_OFFLINE_PET_CRYSTALS_COST)} Stell!`)) return;
+  stellOfflinePetCrystalsUnlocked = true;
+  updateScore();
+  saveGame();
+  showNotification("✓ Offline amethyst income unlocked for ALL pets!", "#c084fc", 3500);
+}
+
 const STELL_EGG_COST = 100;
 function buyStellEgg(count = 1) {
   const amount = Math.max(1, Math.min(100, parseInt(count, 10) || 1));
@@ -1230,11 +1412,7 @@ function buyStellEgg(count = 1) {
     alert("Pet system is not ready yet.");
     return;
   }
-  if (stell < totalCost) {
-    showNotification(`Need ${formatNum(totalCost)} Stell!`, "#ff66ff", 2200);
-    return;
-  }
-  stell -= totalCost;
+  if (!spendStell(totalCost, `Need ${formatNum(totalCost)} Stell!`)) return;
   updateScore();
   const res = window.petSystemApi.openStellEgg(amount);
   if (!res || !res.ok) {
@@ -1248,6 +1426,8 @@ function buyStellEgg(count = 1) {
 if (buyStellEgg1Btn) buyStellEgg1Btn.addEventListener("click", () => buyStellEgg(1));
 if (buyStellEgg10Btn) buyStellEgg10Btn.addEventListener("click", () => buyStellEgg(10));
 if (buyStellEgg100Btn) buyStellEgg100Btn.addEventListener("click", () => buyStellEgg(100));
+if (buyStellOfflinePetCrystalsBtn) buyStellOfflinePetCrystalsBtn.addEventListener("click", buyStellOfflinePetCrystalsUpgrade);
+renderStellOfflineUpgrade();
 
 /* ========== \u0412\u041E\u041B\u041D\u042B ========== */
 function updateWaveBars() {
@@ -1495,8 +1675,10 @@ if (overlay) overlay.addEventListener("click", closeAllMenus);
 
 /* ========== \u041C\u0410\u0413\u0410\u0417\u0418\u041D ========== */
 const shopItemsEl = $("shopItems");
+let lastShopRenderAt = 0;
 function renderShop() {
   if (!shopItemsEl) return;
+  const savedScrollTop = shopItemsEl.scrollTop || 0;
   shopItemsEl.innerHTML = "";
   document.querySelectorAll(".shop-tab").forEach(tab => {
     tab.classList.toggle("active", tab.dataset.shopTab === currentShopTab);
@@ -1520,6 +1702,7 @@ function renderShop() {
       el.addEventListener("click", () => { doRebirth(); playBuySound(); });
     }
     shopItemsEl.appendChild(el);
+    shopItemsEl.scrollTop = savedScrollTop;
     return;
   }
   const items = shopItemsData.filter(i => i.category === currentShopTab);
@@ -1539,18 +1722,25 @@ function renderShop() {
       </div>
     `;
     if (canBuy) {
+      let buying = false;
       el.addEventListener("click", () => {
-        score -= price;
+        if (buying) return;
+        buying = true;
+        const currentPrice = getPrice(item);
+        if (!spendFish(currentPrice, `Need ${formatNum(currentPrice)} fish!`)) { buying = false; renderShop(); return; }
         item.owned++;
         applyUpgradeItem(item);
         stats.itemsBought++;
         playBuySound();
         updateScore();
         saveGame();
+        renderShop();
+        setTimeout(() => { buying = false; }, 120);
       });
     }
     shopItemsEl.appendChild(el);
   }
+  shopItemsEl.scrollTop = savedScrollTop;
 }
 document.querySelectorAll(".shop-tab").forEach(tab => {
   tab.addEventListener("click", () => { currentShopTab = tab.dataset.shopTab; renderShop(); });
@@ -1985,8 +2175,9 @@ function renderChatMessages(list) {
   }
   chatMessagesEl.innerHTML = msgs.map((msg) => {
     const cls = ["chat-line", msg.type === "system" ? "system" : "", msg.eventType || "", msg.admin ? "admin" : ""].filter(Boolean).join(" ");
-    const authorCls = msg.imperial ? "chat-author imperial" : (msg.vip ? "chat-author vip" : "chat-author");
-    const author = msg.type === "system" ? (msg.author || "SYSTEM") : (msg.name || "Anonymous");
+    const isSystem = msg.type === "system";
+    const authorCls = !isSystem && msg.imperial ? "chat-author imperial" : (!isSystem && msg.vip ? "chat-author vip" : "chat-author");
+    const author = isSystem ? (msg.author || "SYSTEM") : (msg.name || "Anonymous");
     return `
       <div class="${cls}">
         <div class="chat-meta">
@@ -2337,9 +2528,9 @@ async function buyPlazaListing(id) {
       return alert(added?.error || "Cannot receive pet");
     }
 
-    score -= prices.fish;
-    crystals -= prices.crystals;
-    stell -= prices.stell;
+    score = Math.max(0, score - prices.fish);
+    crystals = Math.max(0, crystals - prices.crystals);
+    stell = Math.max(0, stell - prices.stell);
     updateScore();
     await saveCurrentUserDataToCloud();
     showNotification("Pet bought!", "#4ade80", 2200);
@@ -2363,11 +2554,14 @@ async function cancelPlazaListing(id) {
   catch (e) { alert("Cancel failed: " + e.message); }
 }
 async function claimPlazaSale(id) {
-  if (!checkTradeCooldown(`plaza_claim_${id}`, 1500)) return;
-  const l = cachedPlazaListings.find(x => x.id === id);
-  if (!l || !currentUser || l.sellerUid !== currentUser.uid || l.status !== "sold") return;
-  const prices = getListingPrices(l);
+  if (!checkTradeCooldown(`plaza_claim_${id}`, 1800)) return;
+  if (!window.fb || !currentUser) return;
   try {
+    const snap = await window.fb.get(window.fb.ref(window.fb.db, `tradeListings/${id}`));
+    const l = snap.val();
+    if (!l || l.sellerUid !== currentUser.uid || l.status !== "sold") return alert("Sale is not claimable.");
+    const prices = getListingPrices(l);
+    // Server first. If rules deny or listing is not sold anymore, no currency is added.
     await window.fb.update(window.fb.ref(window.fb.db, `tradeListings/${id}`), { status: "claimed", claimedAt: Date.now() });
     score += prices.fish;
     crystals += prices.crystals;
@@ -3502,9 +3696,9 @@ window.addEventListener("pageshow", (e) => {
 
 // Expose globals for admin.js
 window.gameState = {
-  get score() { return score; }, set score(v) { score = v; updateScore(); },
-  get crystals() { return crystals; }, set crystals(v) { crystals = v; updateScore(); },
-  get stell() { return stell; }, set stell(v) { stell = v; updateScore(); },
+  get score() { return score; }, set score(v) { score = Math.max(0, Number(v) || 0); updateScore(); },
+  get crystals() { return crystals; }, set crystals(v) { crystals = Math.max(0, Number(v) || 0); updateScore(); },
+  get stell() { return stell; }, set stell(v) { stell = Math.max(0, Number(v) || 0); updateScore(); },
   get clickPower() { return clickPower; }, set clickPower(v) { clickPower = v; updateIncome(); },
   get autoClicker() { return autoClicker; }, set autoClicker(v) { autoClicker = v; updateIncome(); },
   get goldClicks() { return goldClicks; }, set goldClicks(v) { goldClicks = v; updateWaveBars(); },
@@ -3529,7 +3723,8 @@ window.gameState = {
   get rebirthMultiplier() { return rebirthMultiplier; }, set rebirthMultiplier(v) { rebirthMultiplier = v; },
   get potions() { return potions; }, set potions(v) { potions = v; },
   get vipActive() { return vipActive; }, set vipActive(v) { vipActive = !!v; updateIncome(); },
-  get imperialActive() { return imperialActive; }, set imperialActive(v) { imperialActive = !!v; updateIncome(); }
+  get imperialActive() { return imperialActive; }, set imperialActive(v) { imperialActive = !!v; updateIncome(); },
+  get stellOfflinePetCrystalsUnlocked() { return stellOfflinePetCrystalsUnlocked; }, set stellOfflinePetCrystalsUnlocked(v) { stellOfflinePetCrystalsUnlocked = !!v; updateScore(); }
 };
 window.gameFns = {
   formatNum, parseNumInput, formatTime, formatDuration, escapeHtml, normalizeImportedSave, createProtectedSavePayloadForData,
@@ -3537,7 +3732,7 @@ window.gameFns = {
   saveGame, buildSaveData, applySaveData,
   startWave, endWave, queueWavesSequentially,
   playRewardSound, playWaveSound, playBuySound, playEggCrackSound, playEggRevealSound, showNotification,
-  openMenu, closeAllMenus, renderShop, renderPotionShop, renderStats, loadTop, renderTop, pushToLeaderboard, postSystemChat, forceStartCometEvent, setCometSystemEnabled, resetCometTimer,
+  openMenu, closeAllMenus, renderShop, renderPotionShop, renderStats, loadTop, renderTop, pushToLeaderboard, postSystemChat, forceStartCometEvent, forceStartSuperCometEvent, setCometSystemEnabled, resetCometTimer,
   checkAdmin, isUidAdmin, canUseAdmin, spawnFlyingFish, spawnFlyingCrystal,
   getRebirthCost, doRebirth, getClickIncome, getAutoIncome, getPetLuckMult, updatePotionStatusBar, grantVipPetIfPossible, grantImperialPetIfPossible
 };
